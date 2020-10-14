@@ -13,20 +13,34 @@ Our implementation of "Don't Judge an Object by Its Context: Learning to Overcom
 - **Output**: biased_classes.pkl, biased_classes_mapped.pkl, 2 (exclusive, co-occur) x K image path-label dictionaries in directory evaldata (e.g. evaldata/exclusive_snowboard_person.pkl)
 - **Description**: Creates biased categories-related dictionaries and construct 'exclusive' and 'co-occur' test distributions from the COCO-2014 validation set.
 
-## Main code
+```calculate_alpha.py```
+- **Input**: labels_train/val.pkl, biased_classes.pkl, biased_classes_mapped.pkl, humanlabels_to_onehot.pkl
+- **Output**: weights_train/val.pkl
+- **Description**: Calculates alphas and weights needed for feature splitting method's weighted loss.
+
+
+## Training
 ```stage1.py```
 - **Input**: labels_train.pkl, labels_val.pkl, unbiased_classes_mapped.pkl
 - **Output**: Optimized model parameters
 - **Description**: Trains a "standard" baseline classifier.
 
 ```stage2_cam.py```
-- **Input**: labels_train.pkl, labels_val.pkl, unbiased_classes_mapped.pkl, previous model path if continuing training
+- **Input**: labels_train.pkl, labels_val.pkl, unbiased_classes_mapped.pkl
 - **Output**: Optimized model parameters
 - **Description**: Trains a "standard" baseline classifier.
 
-
 ```stage2_featuresplit.py```
-- **Description**: Trains a "standard" baseline classifier.
+- **Input**: labels_train.pkl, labels_val.pkl, biased_classes_mapped.pkl, weight_train.pkl
+- **Output**: Optimized model parameters
+- **Description**: Does stage2 training with the feature splitting method.
+
+
+## Evaluation
+```evaluate.py```
+- **Input**: biased_classes.pkl, humanlabels_to_onehot.pkl, path to saved model parameters
+- **Output**: Scores saved in evalresults
+- **Description**: Evaluates a trained model on the exclusive and co-occur test distributions.
 
 
 ## Utils
