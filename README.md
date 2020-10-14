@@ -10,7 +10,7 @@ Our implementation of "Don't Judge an Object by Its Context: Learning to Overcom
 
 ```create_evaldata.py```
 - **Input**: K biased categories list, humanlabels_to_onehot.pkl, labels_val.pkl
-- **Output**: biased_classes.pkl, biased_classes_mapped.pkl, 2 (exclusive, co-occur) x K image path-label dictionaries in directory evaldata (e.g. evaldata/exclusive_snowboard_person.pkl)
+- **Output**: biased_classes.pkl, biased_classes_mapped.pkl, unbiased_classes_mapped.pkl, 2 (exclusive, co-occur) x K image path-label dictionaries in directory evaldata (e.g. evaldata/exclusive_snowboard_person.pkl)
 - **Description**: Creates biased categories-related dictionaries and construct 'exclusive' and 'co-occur' test distributions from the COCO-2014 validation set.
 
 ```calculate_alpha.py```
@@ -25,10 +25,8 @@ Our implementation of "Don't Judge an Object by Its Context: Learning to Overcom
 - **Output**: Optimized model parameters
 - **Description**: Trains a "standard" baseline classifier.
 
-```stage2_cam.py```
-- **Input**: labels_train.pkl, labels_val.pkl, unbiased_classes_mapped.pkl
-- **Output**: Optimized model parameters
-- **Description**: Trains a "standard" baseline classifier.
+```stage2_cam.py``` (In development)
+- **Description**: Does stage2 training with the CAM-method.
 
 ```stage2_featuresplit.py```
 - **Input**: labels_train.pkl, labels_val.pkl, biased_classes_mapped.pkl, weight_train.pkl
