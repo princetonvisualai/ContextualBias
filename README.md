@@ -9,6 +9,6 @@ Our implementation of "Don't Judge an Object by Its Context: Learning to Overcom
 
 ```create_evaldata.py```
 - **Input**: K biased categories list, humanlabels_to_onehot.pkl, labels_val.pkl
-- **Output**: biased_classes.pkl, biased_classes_mapped.pkl, 2 (exclusive, co-occur) x K dictionaries, following the format of labels_val/train.pkl in directory evaldata (e.g. evaldata/exclusive_snowboard_person.pkl)
+- **Output**: biased_classes.pkl, biased_classes_mapped.pkl, 2 (exclusive, co-occur) x K image path-label dictionaries in directory evaldata (e.g. evaldata/exclusive_snowboard_person.pkl)
 - **Description**: Creates biased categories-related dictionaries and construct 'exclusive' and 'co-occur' test distributions from the COCO-2014 validation set.
 
