@@ -2,6 +2,7 @@
 
 Our implementation of "Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias." Krishna Kumar Singh, Dhruv Mahajan, Kristen Grauman, Yong Jae Lee, Matt Feiszli, Deepti Ghadiyaram. CVPR 2020. https://arxiv.org/abs/2001.03152
 
+## Pre-processing (run once)
 ```data_process.py```
 - **Input**: labels.txt
 - **Output**: humanlabels_to_onehot.pkl, labels_val.pkl, labels_train.pkl
@@ -11,4 +12,30 @@ Our implementation of "Don't Judge an Object by Its Context: Learning to Overcom
 - **Input**: K biased categories list, humanlabels_to_onehot.pkl, labels_val.pkl
 - **Output**: biased_classes.pkl, biased_classes_mapped.pkl, 2 (exclusive, co-occur) x K image path-label dictionaries in directory evaldata (e.g. evaldata/exclusive_snowboard_person.pkl)
 - **Description**: Creates biased categories-related dictionaries and construct 'exclusive' and 'co-occur' test distributions from the COCO-2014 validation set.
+
+## Main code
+```stage1.py```
+- **Input**: labels_train.pkl, labels_val.pkl, unbiased_classes_mapped.pkl
+- **Output**: Optimized model parameters
+- **Description**: Trains a "standard" baseline classifier.
+
+```stage2_cam.py```
+- **Input**: labels_train.pkl, labels_val.pkl, unbiased_classes_mapped.pkl, previous model path if continuing training
+- **Output**: Optimized model parameters
+- **Description**: Trains a "standard" baseline classifier.
+
+
+```stage2_featuresplit.py```
+- **Description**: Trains a "standard" baseline classifier.
+
+
+## Utils
+```load_data.py```
+- **Description**: Creates dataset loader. Needed in stage1.py.
+
+```classifier.py```
+- **Description**: Defines the multi-label classifier class. Needed in stage1.py
+
+```basenet.py```
+- **Description**: Defines ResNet-50 backbone architecture. Needed in classifier.py
 
