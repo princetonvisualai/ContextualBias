@@ -1,4 +1,4 @@
-# Learning to Overcome Contextual Bias
+# [Re] Learning to Overcome Contextual Bias
 
 As part of our participation in the [ML Reproducibility Challenge 2020](https://paperswithcode.com/rc2020), we aimed to replicate the experiments described in the paper "Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias." Krishna Kumar Singh, Dhruv Mahajan, Kristen Grauman, Yong Jae Lee, Matt Feiszli, Deepti Ghadiyaram. CVPR 2020. https://arxiv.org/abs/2001.03152.
 
