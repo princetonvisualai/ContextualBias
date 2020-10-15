@@ -1,6 +1,6 @@
-# ML Reproducibility Challenge 2020
+# Learning to Overcome Contextual Bias
 
-Our implementation of "Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias." Krishna Kumar Singh, Dhruv Mahajan, Kristen Grauman, Yong Jae Lee, Matt Feiszli, Deepti Ghadiyaram. CVPR 2020. https://arxiv.org/abs/2001.03152
+As part of our participation in the ML Reproducibility Challenge 2020, we aimed to replicate the experiments described in the paper "Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias." Krishna Kumar Singh, Dhruv Mahajan, Kristen Grauman, Yong Jae Lee, Matt Feiszli, Deepti Ghadiyaram. CVPR 2020. https://arxiv.org/abs/2001.03152.
 
 ## Pre-processing (run once)
 ```data_process.py```
@@ -50,4 +50,3 @@ Our implementation of "Don't Judge an Object by Its Context: Learning to Overcom
 
 ```basenet.py```
 - **Description**: Defines ResNet-50 backbone architecture. Needed in classifier.py
-
