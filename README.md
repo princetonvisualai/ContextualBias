@@ -25,7 +25,9 @@ As part of our participation in the [ML Reproducibility Challenge 2020](https://
 - **Output**: Optimized model parameters
 - **Description**: Trains a "standard" baseline classifier.
 
-```stage2_cam.py``` (In development)
+```stage2_cam.py```
+- **Input**: labels_train.pkl, labels_val.pkl, biased_classes_mapped.pkl
+- **Output**: Optimized model parameters
 - **Description**: Does stage2 training with the CAM-method.
 
 ```stage2_featuresplit.py```
