@@ -1,11 +1,11 @@
- import pickle
+import pickle
 import time
 from os import path, mkdir
 import torch
 import numpy as np
 
 from classifier import multilabel_classifier
-from loaddata import *
+from load_data import *
 
 nepochs = 100
 modelpath = None
@@ -29,7 +29,7 @@ start_time = time.time()
 # Initialize classifier
 Classifier = multilabel_classifier(torch.device('cuda'), torch.float32, modelpath)
 
-for i in range(Classifier.epoch+1, nepochs):
+for i in range(Classifier.epoch, nepochs):
 
     if i == 60: # Reduce learning rate from 0.1 to 0.01
         Classifier.optimizer = torch.optim.SGD(Classifier.model.parameters(), lr=0.01, momentum=0.9)
