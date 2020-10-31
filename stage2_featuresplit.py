@@ -8,7 +8,7 @@ from classifier import multilabel_classifier
 from loaddata import *
 
 nepochs = 100
-modelpath = 'save/stage1/stage1_23.pth'
+modelpath = 'save/stage1/stage1_99.pth'
 print('Start stage2 feature-split training from {}'.format(modelpath))
 outdir = 'save/stage2'
 if not path.isdir(outdir):
@@ -62,7 +62,7 @@ for epoch in range(nepochs):
             # Keep track of xs
             xs_prev_ten.append(x_non[:, 1024:].detach())
             if len(xs_prev_ten) > 10:
-                xs_prev_ten.pop()
+                xs_prev_ten.pop(0)
 
             l_non = loss_non.item()
         else:
