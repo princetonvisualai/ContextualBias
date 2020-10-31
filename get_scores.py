@@ -10,17 +10,14 @@ from load_data import *
 # Set path to the trained model
 modelpath = '/n/fs/context-scr/save/stage1/stage1_99.pth'
 
-# Load util files
-humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/humanlabels_to_onehot.pkl', 'rb'))
-labels_train = pickle.load(open('/n/fs/context-scr/labels_train.pkl', 'rb'))
-
 # Load model and set it in evaluation mode
 Classifier = multilabel_classifier(torch.device('cuda'), torch.float32, modelpath=modelpath)
 Classifier.model.cuda()
 Classifier.model.eval()
 
+# Load 20 split
 BATCH_SIZE = 500
-valset = create_dataset(COCOStuff_ID, labels='/n/fs/context-scr/labels_val.pkl', B=BATCH_SIZE)
+valset = create_dataset(COCOStuff_ID, labels='/n/fs/context-scr/labels_train_20.pkl', B=BATCH_SIZE)
 print('Batch size {}, Total number of batches {}'.format(BATCH_SIZE, len(valset)))
 
 # Go through the dataset and save scores
