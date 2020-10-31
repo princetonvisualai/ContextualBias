@@ -66,7 +66,7 @@ for b in range(num_categs):
         imgs_z = set(label_to_img[z])
         co_occur = imgs_b.intersection(imgs_z)
         if len(co_occur)/len(imgs_b) > CO_OCCUR_PERCENT:
-            biases_b[z] = bias(b, z, imgs_b, imgs_z, co_occur, scoress_val)
+            biases_b[z] = bias(b, z, imgs_b, imgs_z, co_occur, scores_val)
 
     # Identify c that has the highest bias for b
     if np.sum(biases_b) != 0:
