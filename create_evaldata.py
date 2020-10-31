@@ -3,6 +3,31 @@ from os import path, mkdir
 import torch
 import numpy as np
 from PIL import Image
+import argparse 
+
+# python create_evaldata.py --val --train (to run without saving .pkl files)
+# python create_evaldata.py --val --train --save (to run and save .pkl files)
+
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('--val', action='store_true', default=True,
+                      help='Run on validation set',
+                      dest='val')
+parser.add_argument('--train', action='store_true', default=False,
+                      help='Run on training set',
+                      dest='train')
+parser.add_argument('--save', action='store_true', default=False,
+                      help='Save dictionaries of exclusive and co-occur image filepaths',
+                      dest='save')
+
+run_val = parser.parse_args().val
+run_train = parser.parse_args().train
+do_save = parser.parse_args().save
+
+datasets = []
+if run_val:
+    datasets.append('labels_val.pkl')
+if run_train:
+    datasets.append('labels_train.pkl')
 
 # 20 most biased classes identified in the original paper
 biased_classes = {}
@@ -40,77 +65,84 @@ with open('biased_classes_mapped.pkl', 'wb+') as handle:
 unbiased_classes_mapped = [i for i in list(np.arange(80)) if i not in biased_classes_mapped.keys()]
 with open('unbiased_classes_mapped.pkl', 'wb+') as handle:
     pickle.dump(unbiased_classes_mapped, handle)
+    
+for dataset_filename in datasets:
+    # Construct 'exclusive' and 'co-occur' test distributions fom the dataset
+    labels = pickle.load(open(dataset_filename, 'rb'))
+    print('{} images in the dataset {}'.format(len(labels), dataset_filename))
 
-# Construct 'exclusive' and 'co-occur' test distributions fom the val set
-labels_val = pickle.load(open('labels_val.pkl', 'rb'))
-print('{} images in the validation set'.format(len(labels_val)))
+    exclusive_set = {}
+    cooccur_set = {}
 
-exclusive_set = {}
-cooccur_set = {}
+    # Loop over K biased categories
+    for b in biased_classes_mapped.keys():
+        exclusive = []
+        cooccur = []
+        exclusive_positive = 0
+        cooccur_positive = 0
+        b0c0 = 0
+        b0c1 = 0
 
-# Loop over K biased categories
-for b in biased_classes_mapped.keys():
-    exclusive = []
-    cooccur = []
-    exclusive_positive = 0
-    cooccur_positive = 0
-    b0c0 = 0
-    b0c1 = 0
+        # Loop over all 40504 images in the validation set
+        for key in labels.keys():
+            label = labels[key]
 
-    # Loop over all 40504 images in the validation set
-    for key in labels_val.keys():
-        label = labels_val[key]
+            # Co-occur
+            if label[b]==1 and label[biased_classes_mapped[b]]==1:
+                cooccur.append(key)
+                cooccur_positive += 1
+            # Exclusive
+            elif label[b]==1 and label[biased_classes_mapped[b]]==0:
+                exclusive.append(key)
+                exclusive_positive += 1
+            # Other
+            elif label[b]==0 and label[biased_classes_mapped[b]]==1:
+                cooccur.append(key)
+                exclusive.append(key)
+                b0c1 += 1
+            else:
+                cooccur.append(key)
+                exclusive.append(key)
+                b0c0 += 1
 
-        # Co-occur
-        if label[b]==1 and label[biased_classes_mapped[b]]==1:
-            cooccur.append(key)
-            cooccur_positive += 1
-        # Exclusive
-        elif label[b]==1 and label[biased_classes_mapped[b]]==0:
-            exclusive.append(key)
-            exclusive_positive += 1
-        # Other
-        elif label[b]==0 and label[biased_classes_mapped[b]]==1:
-            cooccur.append(key)
-            exclusive.append(key)
-            b0c1 += 1
+        exclusive_set[b] = exclusive
+        cooccur_set[b] = cooccur
+
+        # Print how many images are in each set
+        b_human = list(humanlabels_to_onehot.keys())[list(humanlabels_to_onehot.values()).index(b)]
+        c_human = list(humanlabels_to_onehot.keys())[list(humanlabels_to_onehot.values()).index(biased_classes_mapped[b])]
+        print('\n{} - {}'.format(b_human, c_human))
+        print('  exclusive: {}+{}={} images'.format(exclusive_positive, b0c1+b0c0, len(exclusive_set[b])))
+        print('  co-occur: {}+{}={} images'.format(cooccur_positive, b0c1+b0c0, len(cooccur_set[b])))
+
+    # Save exclusive and co-occur sets
+    if do_save:
+        if dataset_filename == 'labels_val.pkl':
+            outdir = 'evaldata/val'
+        elif dataset_filename == 'labels_train.pkl':
+            outdir = 'evaldata/train'
         else:
-            cooccur.append(key)
-            exclusive.append(key)
-            b0c0 += 1
+            outdir = 'evaldata/misc'
+        if not path.isdir(outdir):
+            mkdir(outdir)
 
-    exclusive_set[b] = exclusive
-    cooccur_set[b] = cooccur
+        for b in biased_classes_mapped.keys():
+            b_human = list(humanlabels_to_onehot.keys())[list(humanlabels_to_onehot.values()).index(b)]
+            c_human = list(humanlabels_to_onehot.keys())[list(humanlabels_to_onehot.values()).index(biased_classes_mapped[b])]
 
-    # Print how many images are in each set
-    b_human = list(humanlabels_to_onehot.keys())[list(humanlabels_to_onehot.values()).index(b)]
-    c_human = list(humanlabels_to_onehot.keys())[list(humanlabels_to_onehot.values()).index(biased_classes_mapped[b])]
-    print('\n{} - {}'.format(b_human, c_human))
-    print('  exclusive: {}+{}={} images'.format(exclusive_positive, b0c1+b0c0, len(exclusive_set[b])))
-    print('  co-occur: {}+{}={} images'.format(cooccur_positive, b0c1+b0c0, len(cooccur_set[b])))
+            b_exclusive = exclusive_set[b]
+            b_cooccur = cooccur_set[b]
 
-# Save exclusive and co-occur sets
-outdir = 'evaldata'
-if not path.isdir(outdir):
-    mkdir(outdir)
+            # exclusive: save image file paths and one-hot-encoded labels
+            exclusive_val = {}
+            for key in b_exclusive:
+                exclusive_val[key] = labels[key]
+            with open('{}/exclusive_{}_{}.pkl'.format(outdir, b_human, c_human), 'wb+') as handle:
+                pickle.dump(exclusive_val, handle)
 
-for b in biased_classes_mapped.keys():
-    b_human = list(humanlabels_to_onehot.keys())[list(humanlabels_to_onehot.values()).index(b)]
-    c_human = list(humanlabels_to_onehot.keys())[list(humanlabels_to_onehot.values()).index(biased_classes_mapped[b])]
-
-    b_exclusive = exclusive_set[b]
-    b_cooccur = cooccur_set[b]
-
-    # exclusive: save image file paths and one-hot-encoded labels
-    exclusive_val = {}
-    for key in b_exclusive:
-        exclusive_val[key] = labels_val[key]
-    with open('{}/exclusive_{}_{}.pkl'.format(outdir, b_human, c_human), 'wb+') as handle:
-        pickle.dump(exclusive_val, handle)
-
-    # cooccur: save image file paths and one-hot-encoded labels
-    cooccur_val = {}
-    for key in b_cooccur:
-        cooccur_val[key] = labels_val[key]
-    with open('{}/cooccur_{}_{}.pkl'.format(outdir, b_human, c_human), 'wb+') as handle:
-        pickle.dump(cooccur_val, handle)
+            # cooccur: save image file paths and one-hot-encoded labels
+            cooccur_val = {}
+            for key in b_cooccur:
+                cooccur_val[key] = labels[key]
+            with open('{}/cooccur_{}_{}.pkl'.format(outdir, b_human, c_human), 'wb+') as handle:
+                pickle.dump(cooccur_val, handle)
