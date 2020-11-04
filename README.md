@@ -1,12 +1,13 @@
 # [Re] Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias
 
-As part of our participation in the [ML Reproducibility Challenge 2020](https://paperswithcode.com/rc2020), we aimed to replicate the experiments described in the paper "Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias." Krishna Kumar Singh, Dhruv Mahajan, Kristen Grauman, Yong Jae Lee, Matt Feiszli, Deepti Ghadiyaram. CVPR 2020. https://arxiv.org/abs/2001.03152.
+This is a non-official implementation of [Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias](https://arxiv.org/abs/2001.03152) (CVPR 2020). As part of our participation in the [ML Reproducibility Challenge 2020](https://paperswithcode.com/rc2020), we aimed to replicate the experiments described in the paper.
+
 
 ## Pre-processing (run once)
 ```data_process.py```
-- **Input**: labels.txt
+- **Input**: labels.txt (downloaded from the official COCO-Stuff repository: https://github.com/nightrome/cocostuff)
 - **Output**: humanlabels_to_onehot.pkl, labels_val.pkl, labels_train.pkl
-- **Description**: Processes COCO-2014 train and validation sets by grabbing the corresponding things+stuff annotations from COCO-2017-Stuff. labels_val.pkl and label_train.pkl contain image paths as keys (e.g. '/n/fs/visualai-scr/Data/Coco/2014data/val2014/COCO_val2014_000000581913.jpg) and one-hot encoded labels as values (e.g. [0, 1, ..., 0]).
+- **Description**: Processes COCO-2014 train and validation sets by grabbing the corresponding things+stuff annotations from COCO-2017-Stuff. labels_val.pkl and label_train.pkl contain image paths as keys (e.g. '/n/fs/visualai-scr/Data/Coco/2014data/val2014/COCO_val2014_000000581913.jpg) and 171-D one-hot encoded labels as values (e.g. [0, 1, ..., 0]).
 
 ```create_evaldata.py```
 - **Input**: K biased categories list, humanlabels_to_onehot.pkl, labels_val.pkl
@@ -16,22 +17,39 @@ As part of our participation in the [ML Reproducibility Challenge 2020](https://
 ```calculate_alpha.py```
 - **Input**: labels_train/val.pkl, biased_classes.pkl, biased_classes_mapped.pkl, humanlabels_to_onehot.pkl
 - **Output**: weights_train/val.pkl
-- **Description**: Calculates alphas and weights needed for feature splitting method's weighted loss.
+- **Description**: Calculates alphas and weights needed for the feature splitting method's weighted loss.
+
+
+## Biased categories identification
+```get_scores.py```
+- **Input**: labels_train_20.pkl, path to the model trained on labels_train_80.pkl
+- **Output**: scores_train_20.pkl
+- **Description**: Passes images in labels_train_20.pkl (20% split of COCO-2014 train) through the standard classsifier trained on labels_train_80.pkl (80% of COCO-2014 train) and outputs scores
+
+```biased_categories.py```
+- **Input**: labels_train_20.pkl, scores_train_20.pkl, humanlabels_to_onehot.pkl
+- **Output**: biased_categories.pkl
+- **Description**: Calculates bias and identifies the K=20 most biased categories
 
 
 ## Training
+```stage1_80_20.py```
+- **Input**: labels_train_80.pkl, labels_train_20.pkl, unbiased_classes_mapped.pkl
+- **Output**: Optimized model parameters
+- **Description**: Trains a "standard" baseline classifier on the 80% split of the COCO-2014 training set. This classifier is only used for biased categories identification.
+
 ```stage1.py```
 - **Input**: labels_train.pkl, labels_val.pkl, unbiased_classes_mapped.pkl
 - **Output**: Optimized model parameters
-- **Description**: Trains a "standard" baseline classifier.
+- **Description**: Trains a "standard" baseline classifier. The trained classifier serves as the starting point for stage2 training.
 
 ```stage2_cam.py```
-- **Input**: labels_train.pkl, labels_val.pkl, biased_classes_mapped.pkl
+- **Input**: labels_train.pkl, labels_val.pkl, biased_classes_mapped.pkl, path to the trained baseline model
 - **Output**: Optimized model parameters
 - **Description**: Does stage2 training with the CAM-method.
 
 ```stage2_featuresplit.py```
-- **Input**: labels_train.pkl, labels_val.pkl, biased_classes_mapped.pkl, weight_train.pkl
+- **Input**: labels_train.pkl, labels_val.pkl, biased_classes_mapped.pkl, weight_train.pkl, path to the trained baseline model
 - **Output**: Optimized model parameters
 - **Description**: Does stage2 training with the feature splitting method.
 
