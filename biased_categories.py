@@ -28,9 +28,9 @@ def bias(b, z, imgs_b, imgs_z, co_occur, scores_val):
     return bias_val
 
 # Load files
-labels_val = pickle.load(open('labels_val.pkl', 'rb'))
-scores_val = pickle.load(open('scores_val.pkl', 'rb'))
-humanlabels_to_onehot = pickle.load(open('../humanlabels_to_onehot.pkl', 'rb'))
+labels_val = pickle.load(open('/n/fs/context-scr/labels_train_20.pkl', 'rb'))
+scores_val = pickle.load(open('/n/fs/context-scr/scores_train_20.pkl', 'rb'))
+humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/humanlabels_to_onehot.pkl', 'rb'))
 onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
 # c should co-occur with b at least 10% of the times b appears
