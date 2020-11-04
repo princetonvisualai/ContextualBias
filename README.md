@@ -3,7 +3,7 @@
 This is a non-official implementation of [Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias](https://arxiv.org/abs/2001.03152) (CVPR 2020). As part of our participation in the [ML Reproducibility Challenge 2020](https://paperswithcode.com/rc2020), we aimed to replicate the experiments described in the paper.
 
 
-## Pre-processing (run once)
+## Pre-processing
 ```data_process.py```
 - **Input**: labels.txt (downloaded from the official COCO-Stuff repository: https://github.com/nightrome/cocostuff)
 - **Output**: humanlabels_to_onehot.pkl, labels_val.pkl, labels_train.pkl
@@ -15,8 +15,8 @@ This is a non-official implementation of [Don't Judge an Object by Its Context: 
 - **Description**: Creates biased categories-related dictionaries and construct 'exclusive' and 'co-occur' test distributions from the COCO-2014 validation set.
 
 ```calculate_alpha.py```
-- **Input**: labels_train/val.pkl, biased_classes.pkl, biased_classes_mapped.pkl, humanlabels_to_onehot.pkl
-- **Output**: weights_train/val.pkl
+- **Input**: labels_train.pkl, biased_classes.pkl, biased_classes_mapped.pkl, humanlabels_to_onehot.pkl
+- **Output**: weights_train.pkl
 - **Description**: Calculates alphas and weights needed for the feature splitting method's weighted loss.
 
 
