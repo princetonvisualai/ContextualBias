@@ -8,7 +8,7 @@ from classifier import multilabel_classifier
 from load_data import *
 
 # Set path to the trained model
-modelpath = '/n/fs/context-scr/save/stage1/stage1_99.pth'
+modelpath = '/n/fs/context-scr/save/stage1_80_20/stage1_99.pth'
 
 # Load model and set it in evaluation mode
 Classifier = multilabel_classifier(torch.device('cuda'), torch.float32, modelpath=modelpath)
@@ -36,5 +36,5 @@ with torch.no_grad():
             scores_dict[id] = scores[j]
 
 print('scores_dict', len(scores_dict))
-with open('scores_val.pkl', 'wb') as handle:
+with open('scores_train_20.pkl', 'wb') as handle:
     pickle.dump(scores_dict, handle, protocol=4)
