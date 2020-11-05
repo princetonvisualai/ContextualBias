@@ -25,6 +25,23 @@ class COCOStuff(Dataset):
 
         return X, y
 
+class COCOStuff_ID(Dataset):
+    def __init__(self, img_paths, img_labels, transform=T.ToTensor()):
+        self.img_paths = img_paths
+        self.img_labels = img_labels
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.img_paths)
+
+    def __getitem__(self, index):
+        ID = self.img_paths[index]
+        img = Image.open(ID).convert('RGB')
+        X = self.transform(img)
+        y = self.img_labels[ID]
+
+        return X, y, ID
+
 def create_dataset(dataset, labels='labels_train.pkl', B=32):
 
     img_labels = pickle.load(open(labels, 'rb'))
