@@ -1,6 +1,7 @@
 import pickle
 import time
-from os import path, mkdir
+#from os import path, mkdir
+import os
 
 import torch
 from torchvision import transforms
@@ -10,18 +11,18 @@ from classifier import multilabel_classifier
 from load_data import *
 
 nepochs = 100
-modelpath = 'save/stage1/stage1_23.pth'
+modelpath = '/n/fs/context-scr/save/stage1/stage1_99.pth'
 outdir = 'save/stage2_cam'
-if not path.isdir(outdir):
-    mkdir(outdir)
+if not os.path.exists(outdir):
+    os.makedirs(outdir)
 print('Start stage2 CAM training from {}'.format(modelpath))
 print('Model parameters will be saved in {}'.format(outdir))
 
-biased_classes_mapped = pickle.load(open('biased_classes_mapped.pkl', 'rb'))
+biased_classes_mapped = pickle.load(open('/n/fs/context-scr/biased_classes_mapped.pkl', 'rb'))
 
 # Create data loader
-trainset = create_dataset(COCOStuff, labels='labels_train.pkl', B=64)
-valset = create_dataset(COCOStuff, labels='labels_val.pkl', B=500)
+trainset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_train.pkl', B=64)
+valset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_val.pkl', B=500)
 print('Created train and val datasets \n')
 
 # Set up the CAM pre-trained network
@@ -53,7 +54,7 @@ Classifier = multilabel_classifier(torch.device('cuda'), torch.float32, modelpat
 Classifier.epoch = 0
 Classifier.optimizer = torch.optim.SGD(Classifier.model.parameters(), lr=0.01, momentum=0.9)
 
-for epoch in range(nepochs):
+for epoch in range(Classifier.epoch, nepochs):
 
     # Specialized training
     Classifier.model = Classifier.model.to(device=Classifier.device, dtype=Classifier.dtype)
@@ -137,7 +138,8 @@ for epoch in range(nepochs):
         if (i+1)%100 == 0:
             print('Training epoch {} [{}|{}] co-occur({}/{}) {}, other({}/{}) {}'.format(Classifier.epoch, i+1, len(trainset), len(cooccur), images.shape[0], l_coc, len(noncooccur), images.shape[0],  l_non), flush=True)
 
-    # Classifier.save_model('{}/stage2_{}.pth'.format(outdir, Classifier.epoch))
+    if epoch+1 % 5 == 0:
+        Classifier.save_model('{}/stage2_{}.pth'.format(outdir, Classifier.epoch))
     Classifier.epoch += 1
     print('Time passed so far: {:.2f} minutes'.format((time.time()-start_time)/60.))
     print()

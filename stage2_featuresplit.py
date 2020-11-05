@@ -1,27 +1,27 @@
 import pickle
 import time
-from os import path, mkdir
+from os import path, makedirs
 import torch
 import numpy as np
 
 from classifier import multilabel_classifier
-from loaddata import *
+from load_data import *
 
 nepochs = 100
-modelpath = 'save/stage1/stage1_99.pth'
+modelpath = '/n/fs/context-scr/save/stage1/stage1_99.pth'
 print('Start stage2 feature-split training from {}'.format(modelpath))
 outdir = 'save/stage2'
 if not path.isdir(outdir):
-    mkdir(outdir)
+    makedirs(outdir)
 print('Model parameters will be saved in {}'.format(outdir))
 
-weight = pickle.load(open('weight_train.pkl', 'rb'))
+weight = pickle.load(open('/n/fs/context-scr/weight_train.pkl', 'rb'))
 weight = torch.Tensor(weight).cuda()
-biased_classes_mapped = pickle.load(open('biased_classes_mapped.pkl', 'rb'))
+biased_classes_mapped = pickle.load(open('/n/fs/context-scr/biased_classes_mapped.pkl', 'rb'))
 
 # Create data loader
-trainset = create_dataset(COCOStuff, labels='labels_train.pkl', B=64)
-valset = create_dataset(COCOStuff, labels='labels_val.pkl', B=500)
+trainset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_train.pkl', B=64)
+valset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_val.pkl', B=500)
 print('Created train and val datasets \n')
 
 # Start stage 2 training
@@ -91,10 +91,11 @@ for epoch in range(nepochs):
         else:
             l_exc = 'NA'
 
-        if i%100 == 0:
+        if (i+1)%100 == 0:
             print('Training epoch {} [{}|{}] non-exclusive({}/{}) {}, exclusive({}/{}) {}'.format(Classifier.epoch, i+1, len(trainset), (~exclusive).sum(), len(exclusive), l_non, (exclusive).sum(), len(exclusive),  l_exc), flush=True)
-
-    Classifier.save_model('{}/stage2_{}.pth'.format(outdir, Classifier.epoch))
+    
+    if epoch+1 % 5 == 0:
+        Classifier.save_model('{}/stage2_{}.pth'.format(outdir, Classifier.epoch))
     Classifier.epoch += 1
     print('Time passed so far: {:.2f} minutes'.format((time.time()-start_time)/60.))
     print()
