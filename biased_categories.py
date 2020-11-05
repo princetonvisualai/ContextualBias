@@ -81,7 +81,7 @@ for b in range(num_categs):
 top_20_idx = np.argsort(biased_pairs[:,2])[-20:]
 top_20 = []
 for i in top_20_idx:
-    top_20.append([onehot_to_labels[int(biased_pairs[i,0])], onehot_to_labels[int(biased_pairs[i,1])], biased_pairs[i,2]])
+    top_20.append([onehot_to_humanlabels[int(biased_pairs[i,0])], onehot_to_humanlabels[int(biased_pairs[i,1])], biased_pairs[i,2]])
 
 data = {'top_20': top_20, 'biased_pairs': biased_pairs}
 with open('biased_categories.pkl', 'wb') as handle:
