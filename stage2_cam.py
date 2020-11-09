@@ -49,14 +49,14 @@ preprocess = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTen
 
 # Start stage 2 training
 start_time = time.time()
-Classifier = multilabel_classifier(torch.device('cuda'), torch.float32, modelpath=modelpath)
-Classifier.epoch = 0
-Classifier.optimizer = torch.optim.SGD(Classifier.model.parameters(), lr=0.01, momentum=0.9)
+classifier = multilabel_classifier(torch.device('cuda'), torch.float32, modelpath=modelpath)
+classifier.epoch = 0
+classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9)
 
 for epoch in range(nepochs):
 
     # Specialized training
-    Classifier.model = Classifier.model.to(device=Classifier.device, dtype=Classifier.dtype)
+    classifier.model = classifier.model.to(device=classifier.device, dtype=classifier.dtype)
     for i, (images, labels) in enumerate(trainset):
 
         # Identify co-occurring instances and separate the batch into co-occurring and non-co-occurring
@@ -72,32 +72,32 @@ for epoch in range(nepochs):
                 cooccur_classes.append(cooccur_class)
 
         noncooccur = [x for x in np.arange(images.shape[0]) if x not in cooccur]
-        images_coc = images[cooccur].to(device=Classifier.device, dtype=Classifier.dtype)
-        images_non = images[noncooccur].to(device=Classifier.device, dtype=Classifier.dtype)
-        labels_coc = labels[cooccur].to(device=Classifier.device, dtype=Classifier.dtype)
-        labels_non = labels[noncooccur].to(device=Classifier.device, dtype=Classifier.dtype)
+        images_coc = images[cooccur].to(device=classifier.device, dtype=classifier.dtype)
+        images_non = images[noncooccur].to(device=classifier.device, dtype=classifier.dtype)
+        labels_coc = labels[cooccur].to(device=classifier.device, dtype=classifier.dtype)
+        labels_non = labels[noncooccur].to(device=classifier.device, dtype=classifier.dtype)
 
         ### Co-occur (both b and c appears)
         if len(cooccur) > 0:
 
             # Hook the feature extractor
-            Classifier_features = []
+            classifier_features = []
             def hook_classifier_features(module, input, output):
-                Classifier_features.append(output)
-            Classifier.model._modules['resnet'].layer4.register_forward_hook(hook_classifier_features)
-            Classifier_params = list(Classifier.model.parameters())
-            Classifier_softmax_weight = Classifier_params[-2].squeeze(0)
+                classifier_features.append(output)
+            classifier.model._modules['resnet'].layer4.register_forward_hook(hook_classifier_features)
+            classifier_params = list(classifier.model.parameters())
+            classifier_softmax_weight = classifier_params[-2].squeeze(0)
 
-            Classifier.optimizer.zero_grad()
-            _, x_coc = Classifier.forward(images_coc)
-            out_coc = Classifier.model.fc(Classifier.model.dropout(Classifier.model.relu(x_coc)))
+            classifier.optimizer.zero_grad()
+            _, x_coc = classifier.forward(images_coc)
+            out_coc = classifier.model.fc(classifier.model.dropout(classifier.model.relu(x_coc)))
 
             criterion = torch.nn.BCEWithLogitsLoss()
             l_coc_bce = criterion(out_coc, labels_coc)
 
             CAMs = torch.Tensor(0, 2, 7, 7).cuda()
             for k in range(len(cooccur)):
-                CAM = returnCAM(Classifier_features[0][k].unsqueeze(0), Classifier_softmax_weight, cooccur_classes[k])
+                CAM = returnCAM(classifier_features[0][k].unsqueeze(0), classifier_softmax_weight, cooccur_classes[k])
                 CAMs = torch.cat((CAMs, CAM.unsqueeze(0)), 0)
 
             # Get CAM from the pre-trained stage 1 network
@@ -120,24 +120,28 @@ for epoch in range(nepochs):
 
             loss_coc = 0.1*l_o + 0.01*l_r + l_coc_bce
             loss_coc.backward()
-            Classifier.optimizer.step()
+            classifier.optimizer.step()
             l_coc = loss_coc.item()
+        else: 
+            l_coc = "NA"
 
         ### All other cases
         if len(noncooccur) > 0:
-            Classifier.optimizer.zero_grad()
-            _, x_non = Classifier.forward(images_non)
-            out_non = Classifier.model.fc(Classifier.model.dropout(Classifier.model.relu(x_non)))
+            classifier.optimizer.zero_grad()
+            _, x_non = classifier.forward(images_non)
+            out_non = classifier.model.fc(classifier.model.dropout(classifier.model.relu(x_non)))
             criterion = torch.nn.BCEWithLogitsLoss()
             loss_non = criterion(out_non, labels_non)
             loss_non.backward()
-            Classifier.optimizer.step()
+            classifier.optimizer.step()
             l_non = loss_non.item()
+        else: 
+            l_non = "NA"
 
         if (i+1)%100 == 0:
-            print('Training epoch {} [{}|{}] co-occur({}/{}) {}, other({}/{}) {}'.format(Classifier.epoch, i+1, len(trainset), len(cooccur), images.shape[0], l_coc, len(noncooccur), images.shape[0],  l_non), flush=True)
+            print('Training epoch {} [{}|{}] co-occur({}/{}) {}, other({}/{}) {}'.format(classifier.epoch, i+1, len(trainset), len(cooccur), images.shape[0], l_coc, len(noncooccur), images.shape[0],  l_non), flush=True)
 
     # Classifier.save_model('{}/stage2_{}.pth'.format(outdir, Classifier.epoch))
-    Classifier.epoch += 1
+    classifier.epoch += 1
     print('Time passed so far: {:.2f} minutes'.format((time.time()-start_time)/60.))
     print()
