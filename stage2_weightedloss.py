@@ -17,7 +17,7 @@ print('Model parameters will be saved in {}'.format(outdir))
 
 weight = pickle.load(open('/n/fs/context-scr/weight_train.pkl', 'rb'))
 weight = torch.Tensor(weight).cuda()
-biased_classes_mapped = pickle.load(open('/n/fs/context-scr/biased_classes_mapped.pkl', 'rb')
+biased_classes_mapped = pickle.load(open('/n/fs/context-scr/biased_classes_mapped.pkl', 'rb'))
 
 # Create data loader
 trainset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_train.pkl', B=200) # instead of 200
@@ -64,18 +64,18 @@ for epoch in range(Classifier.epoch, nepochs):
         if (~exlusive).sum() > 0:
             Classifier.optimizer.zero_grad()
             _, x_non = Classifier.forward(images_non)
-	    out_non = Classifier.model.fc(Classifier.model.dropout(Classifier.model.relu(x_non)))
-	    criterion = torch.nn.BCEWithLogitsLoss()
-	    loss_non = criterion(out_non, labels_non)
+            out_non = Classifier.model.fc(Classifier.model.dropout(Classifier.model.relu(x_non)))
+            criterion = torch.nn.BCEWithLogitsLoss()
+            loss_non = criterion(out_non, labels_non)
 
 	# Use total loss for batch (exclusive + non-exclusive) and perform optimization step
-	loss = loss_exc + loss_non
-	loss.backward()
-	Classifier.optimizer.step()
-	l = loss.item()
+        loss = loss_exc + loss_non
+        loss.backward()
+        Classifier.optimizer.step()
+        l = loss.item()
 
-	if (i+1) % 100 == 0:
-	    print('Training epoch {} [{}|{}] non-exclusive({}/{}), exclusive({}/{}) {}'.format(Classifier.epoch, i+1, len(trainset), (~exclusive).sum(), len(exclusive), (exclusive).sum(), len(exclusive), l), flush=True)
+        if (i+1) % 100 == 0:
+            print('Training epoch {} [{}|{}] non-exclusive({}/{}), exclusive({}/{}) {}'.format(Classifier.epoch, i+1, len(trainset), (~exclusive).sum(), len(exclusive), (exclusive).sum(), len(exclusive), l), flush=True)
 
     if (epoch+1) % 5 == 0:
         Classifier.save_model('{}/stage1_{}.pth'.format(outdir, i))
