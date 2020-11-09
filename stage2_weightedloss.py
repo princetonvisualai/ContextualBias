@@ -32,7 +32,7 @@ loss_weight = 10.0
 
 # Start stage 2 training
 start_time = time.time()
-for i in range(Classifier.epoch, nepochs):
+for epoch in range(Classifier.epoch, nepochs):
 
     # Specialized train()
     train_loss = 0
@@ -77,7 +77,7 @@ for i in range(Classifier.epoch, nepochs):
 	if (i+1) % 100 == 0:
 	    print('Training epoch {} [{}|{}] non-exclusive({}/{}), exclusive({}/{}) {}'.format(Classifier.epoch, i+1, len(trainset), (~exclusive).sum(), len(exclusive), (exclusive).sum(), len(exclusive), l), flush=True)
 
-    if i % 5 == 0:
+    if (epoch+1) % 5 == 0:
         Classifier.save_model('{}/stage1_{}.pth'.format(outdir, i))
     Classifier.epoch += 1
 

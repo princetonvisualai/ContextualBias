@@ -50,6 +50,7 @@ preprocess = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTen
 
 # Start stage 2 training
 start_time = time.time()
+#modelpath2 = 'save/stage2_cam/stage2_10.pth'
 Classifier = multilabel_classifier(torch.device('cuda'), torch.float32, modelpath=modelpath)
 Classifier.epoch = 0
 Classifier.optimizer = torch.optim.SGD(Classifier.model.parameters(), lr=0.01, momentum=0.9)
@@ -138,7 +139,8 @@ for epoch in range(Classifier.epoch, nepochs):
         if (i+1)%100 == 0:
             print('Training epoch {} [{}|{}] co-occur({}/{}) {}, other({}/{}) {}'.format(Classifier.epoch, i+1, len(trainset), len(cooccur), images.shape[0], l_coc, len(noncooccur), images.shape[0],  l_non), flush=True)
 
-    if epoch+1 % 5 == 0:
+    if (epoch+1) % 5 == 0:
+        print('Saving model')
         Classifier.save_model('{}/stage2_{}.pth'.format(outdir, Classifier.epoch))
     Classifier.epoch += 1
     print('Time passed so far: {:.2f} minutes'.format((time.time()-start_time)/60.))

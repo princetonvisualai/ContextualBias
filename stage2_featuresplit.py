@@ -10,7 +10,7 @@ from load_data import *
 nepochs = 100
 modelpath = '/n/fs/context-scr/save/stage1/stage1_99.pth'
 print('Start stage2 feature-split training from {}'.format(modelpath))
-outdir = 'save/stage2'
+outdir = 'save/stage2_featuresplit'
 if not path.isdir(outdir):
     makedirs(outdir)
 print('Model parameters will be saved in {}'.format(outdir))
@@ -94,7 +94,8 @@ for epoch in range(nepochs):
         if (i+1)%100 == 0:
             print('Training epoch {} [{}|{}] non-exclusive({}/{}) {}, exclusive({}/{}) {}'.format(Classifier.epoch, i+1, len(trainset), (~exclusive).sum(), len(exclusive), l_non, (exclusive).sum(), len(exclusive),  l_exc), flush=True)
     
-    if epoch+1 % 5 == 0:
+    if (epoch+1) % 5 == 0:
+        print('Saving model')
         Classifier.save_model('{}/stage2_{}.pth'.format(outdir, Classifier.epoch))
     Classifier.epoch += 1
     print('Time passed so far: {:.2f} minutes'.format((time.time()-start_time)/60.))
