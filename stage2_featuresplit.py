@@ -8,7 +8,11 @@ from classifier import multilabel_classifier
 from load_data import *
 
 nepochs = 100
+
+# Feature Split Constant
+FS_CONST = 1024
 modelpath = '/n/fs/context-scr/save/stage1/stage1_99.pth'
+
 print('Start stage2 feature-split training from {}'.format(modelpath))
 outdir = 'save/stage2_featuresplit'
 if not path.isdir(outdir):
@@ -60,7 +64,7 @@ for epoch in range(nepochs):
             Classifier.optimizer.step()
 
             # Keep track of xs
-            xs_prev_ten.append(x_non[:, 1024:].detach())
+            xs_prev_ten.append(x_non[:, FS_CONST:].detach())
             if len(xs_prev_ten) > 10:
                 xs_prev_ten.pop(0)
 
@@ -76,16 +80,19 @@ for epoch in range(nepochs):
             # Replace the second half of the features with xs_mean
             if len(xs_prev_ten) > 0:
                 xs_mean = torch.cat(xs_prev_ten).mean(0)
-                x_exc[:, 1024:] = xs_mean.detach()
+                x_exc[:, FS_CONST:] = xs_mean.detach()
 
             out_exc = Classifier.model.fc(Classifier.model.dropout(Classifier.model.relu(x_exc)))
             criterion = torch.nn.BCEWithLogitsLoss(pos_weight=weight)
             loss_exc = criterion(out_exc, labels_exc)
             loss_exc.backward()
-            Classifier.model.fc.weight.grad[:, 1024:] = 0.
+            Classifier.model.fc.weight.grad[:, FS_CONST:] = 0.
             Classifier.optimizer.step()
+            '''
             if (Classifier.model.fc.weight.grad[:, 1024:] != 0.).sum() > 0:
                 print('Warning: Ws was updated (Ws.grad is non-zero)')
+            '''
+            assert not (Classifier.model.fc.weight.grad[:, FS_CONST:] != 0.).sum() > 0
 
             l_exc = loss_exc.item()
         else:
