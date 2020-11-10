@@ -20,7 +20,7 @@ weight = torch.Tensor(weight).cuda()
 biased_classes_mapped = pickle.load(open('/n/fs/context-scr/biased_classes_mapped.pkl', 'rb'))
 
 # Create data loader
-trainset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_train.pkl', B=200) # instead of 200
+trainset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_train.pkl', B=100) # instead of 200
 valset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_val.pkl', B=500)
 print('Created train and val datasets \n')
 
@@ -35,7 +35,6 @@ start_time = time.time()
 for epoch in range(Classifier.epoch, nepochs):
 
     # Specialized train()
-    train_loss = 0
     Classifier.model = Classifier.model.to(device=Classifier.device, dtype=Classifier.dtype)
     for i, (images, labels) in enumerate(trainset):
         
@@ -43,9 +42,7 @@ for epoch in range(Classifier.epoch, nepochs):
         exclusive_list = []
         for b in biased_classes_mapped.keys():
             exclusive_list.append(np.logical_and(labels[:,b]==1, labels[:,biased_classes_mapped[b]]==0))
-        print(exclusive_list)
         exclusive = torch.stack(exclusive_list).sum(0) > 0
-        print(exclusive)
 
         images_non = images[~exclusive].to(device=Classifier.device, dtype=Classifier.dtype)
         images_exc = images[exclusive].to(device=Classifier.device, dtype=Classifier.dtype)
@@ -61,7 +58,7 @@ for epoch in range(Classifier.epoch, nepochs):
             loss_exc = loss_weight * criterion(out_exc, labels_exc)
             
         # Get loss for non-exclusive samples (co-occur or neither b nor c appears)
-        if (~exlusive).sum() > 0:
+        if (~exclusive).sum() > 0:
             Classifier.optimizer.zero_grad()
             _, x_non = Classifier.forward(images_non)
             out_non = Classifier.model.fc(Classifier.model.dropout(Classifier.model.relu(x_non)))
@@ -78,7 +75,7 @@ for epoch in range(Classifier.epoch, nepochs):
             print('Training epoch {} [{}|{}] non-exclusive({}/{}), exclusive({}/{}) {}'.format(Classifier.epoch, i+1, len(trainset), (~exclusive).sum(), len(exclusive), (exclusive).sum(), len(exclusive), l), flush=True)
 
     if (epoch+1) % 5 == 0:
-        Classifier.save_model('{}/stage1_{}.pth'.format(outdir, i))
+        Classifier.save_model('{}/stage1_{}.pth'.format(outdir, epoch))
     Classifier.epoch += 1
 
     print('Time passed so far: {:.2f} minutes'.format((time.time()-start_time)/60.))
