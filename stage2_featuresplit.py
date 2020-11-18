@@ -7,11 +7,11 @@ import numpy as np
 from classifier import multilabel_classifier
 from load_data import *
 
-nepochs = 100
+nepochs = 1
 
 # Feature Split Constant
 FS_CONST = 1024
-modelpath = '/n/fs/context-scr/save/stage1/stage1_99.pth'
+modelpath = '/n/fs/context-scr/save/stage1/stage1_4.pth'
 
 print('Start stage2 feature-split training from {}'.format(modelpath))
 outdir = 'save/stage2_featuresplit'
@@ -20,17 +20,17 @@ if not path.isdir(outdir):
 print('Model parameters will be saved in {}'.format(outdir))
 
 weight = pickle.load(open('/n/fs/context-scr/weight_train.pkl', 'rb'))
-weight = torch.Tensor(weight).cuda()
+weight = torch.Tensor(weight)#.cuda()
 biased_classes_mapped = pickle.load(open('/n/fs/context-scr/biased_classes_mapped.pkl', 'rb'))
 
 # Create data loader
-trainset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_train.pkl', B=64)
+trainset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_train.pkl', B=100)
 valset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_val.pkl', B=500)
 print('Created train and val datasets \n')
 
 # Start stage 2 training
 start_time = time.time()
-Classifier = multilabel_classifier(torch.device('cuda'), torch.float32, modelpath=modelpath)
+Classifier = multilabel_classifier(torch.device('cpu'), torch.float32, modelpath=modelpath) # cuda
 Classifier.epoch = 0
 Classifier.optimizer = torch.optim.SGD(Classifier.model.parameters(), lr=0.01, momentum=0.9)
 
@@ -98,7 +98,7 @@ for epoch in range(nepochs):
         else:
             l_exc = 'NA'
 
-        if (i+1)%100 == 0:
+        if (i+1)%5 == 0: # CHANGE BACK TO 100
             print('Training epoch {} [{}|{}] non-exclusive({}/{}) {}, exclusive({}/{}) {}'.format(Classifier.epoch, i+1, len(trainset), (~exclusive).sum(), len(exclusive), l_non, (exclusive).sum(), len(exclusive),  l_exc), flush=True)
     
     if (epoch+1) % 5 == 0:
