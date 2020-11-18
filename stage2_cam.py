@@ -7,11 +7,12 @@ import torch
 from torchvision import transforms
 import numpy as np
 
+from get_cams import returnCAM
 from classifier import multilabel_classifier
 from load_data import *
 
 nepochs = 100
-modelpath = '/n/fs/context-scr/save/stage1/stage1_99.pth'
+modelpath = '/n/fs/context-scr/save/stage1/stage1_4.pth'
 outdir = 'save/stage2_cam'
 if not os.path.exists(outdir):
     os.makedirs(outdir)
@@ -21,7 +22,7 @@ print('Model parameters will be saved in {}'.format(outdir))
 biased_classes_mapped = pickle.load(open('/n/fs/context-scr/biased_classes_mapped.pkl', 'rb'))
 
 # Create data loader
-trainset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_train.pkl', B=64)
+trainset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_train.pkl', B=100)
 valset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_val.pkl', B=500)
 print('Created train and val datasets \n')
 
@@ -31,19 +32,19 @@ stage1_net.model.cuda()
 stage1_net.model.eval()
 
 # CAM utils
-def returnCAM(feature_conv, weight_softmax, class_idx):
-    #size_upsample = (256, 256)
-    bz, nc, h, w = feature_conv.shape
-    output_cam = torch.Tensor(0, 7, 7).cuda()
-    for idx in class_idx:
-        cam = torch.mm(weight_softmax[idx].unsqueeze(0), feature_conv.reshape((nc, h*w)))
-        cam = cam.reshape(h, w)
-        cam = cam - cam.min()
-        cam_img = cam / cam.max()
-        #output_cam.append(cv2.resize(cam_img, size_upsample))
-        output_cam = torch.cat((output_cam, cam_img.unsqueeze(0)), 0)
-
-    return output_cam
+#def returnCAM(feature_conv, weight_softmax, class_idx):
+#    #size_upsample = (256, 256)
+#    bz, nc, h, w = feature_conv.shape
+#    output_cam = torch.Tensor(0, 7, 7).cuda()
+#    for idx in class_idx:
+#        cam = torch.mm(weight_softmax[idx].unsqueeze(0), feature_conv.reshape((nc, h*w)))
+#        cam = cam.reshape(h, w)
+#        cam = cam - cam.min()
+#        cam_img = cam / cam.max()
+#        #output_cam.append(cv2.resize(cam_img, size_upsample))
+#        output_cam = torch.cat((output_cam, cam_img.unsqueeze(0)), 0)
+#
+#    return output_cam
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 preprocess = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor(), normalize])
@@ -54,7 +55,7 @@ classifier = multilabel_classifier(torch.device('cuda'), torch.float32, modelpat
 classifier.epoch = 0
 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9)
 
-for epoch in range(Classifier.epoch, nepochs):
+for epoch in range(classifier.epoch, nepochs):
 
     # Specialized training
     classifier.model = classifier.model.to(device=classifier.device, dtype=classifier.dtype)
@@ -144,7 +145,7 @@ for epoch in range(Classifier.epoch, nepochs):
 
     if (epoch+1) % 5 == 0:
         print('Saving model')
-        Classifier.save_model('{}/stage2_{}.pth'.format(outdir, Classifier.epoch))
-    Classifier.epoch += 1
+        classifier.save_model('{}/stage2_{}.pth'.format(outdir, classifier.epoch))
+    classifier.epoch += 1
     print('Time passed so far: {:.2f} minutes'.format((time.time()-start_time)/60.))
     print()

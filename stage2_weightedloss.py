@@ -8,7 +8,7 @@ from classifier import multilabel_classifier
 from load_data import *
 
 nepochs = 100
-modelpath = '/n/fs/context-scr/save/stage1/stage1_99.pth'
+modelpath = None # '/n/fs/context-scr/save/stage1/stage1_99.pth'
 outdir = 'save/stage2_weightedloss'
 if not os.path.exists(outdir):
     os.makedirs(outdir)

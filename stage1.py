@@ -11,7 +11,7 @@ nepochs = 100
 modelpath = None # None if we're training from scratch. Otherwise put the previous model checkpoint.
 
 # Create data loader
-trainset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_train.pkl', B=200) # instead of 200
+trainset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_train.pkl', B=100) # instead of 200
 valset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_val.pkl', B=500)
 print('Created train and val datasets \n')
 
