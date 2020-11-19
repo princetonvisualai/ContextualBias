@@ -4,33 +4,35 @@ import numpy as np
 import os
 from PIL import Image
 from sklearn.metrics import average_precision_score, precision_recall_curve
-import time
+import sys
 
 from classifier import multilabel_classifier
 from load_data import *
 
+dataset = sys.argv[1]
+
 # Specify the model to evaluate
-modelpath = '/n/fs/context-scr/save/stage1/stage1_4.pth'
+modelpath = '{}/save/stage2_cam/stage2_99.pth'.format(dataset)
 print('Loaded model from', modelpath)
-indir = '/n/fs/context-scr/evaldata/train/'
-outdir = 'evalresults/stage1/'
+indir = '/n/fs/context-scr/{}/evaldata/train/'.format(dataset)
+outdir = '{}/evalresults/stage2_cam/'.format(dataset)
 if not os.path.exists(outdir):
     os.makedirs(outdir)
 print('Save evaluation results in', outdir)
 
-device = torch.device('cuda') # cuda
+device = torch.device('cuda')
 dtype = torch.float32
 
 # Load useful files
-biased_classes_mapped = pickle.load(open('/n/fs/context-scr/biased_classes_mapped.pkl', 'rb'))
-unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/unbiased_classes_mapped.pkl', 'rb'))
-humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/humanlabels_to_onehot.pkl', 'rb'))
+biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(dataset), 'rb'))
+unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/unbiased_classes_mapped.pkl'.format(dataset), 'rb'))
+humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(dataset), 'rb'))
 onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
 # Load dataset to evaluate and create a data loader
-datapath = '/n/fs/context-scr/labels_val.pkl'
-loader = create_dataset(COCOStuff_ID, labels=datapath, B=100)
-labels = pickle.load(open(datapath, 'rb'))
+datapath = 'labels_val.pkl'
+loader = create_dataset(dataset, labels=datapath, B=100)
+labels = pickle.load(open('/n/fs/context-scr/{}/{}'.format(dataset, datapath), 'rb'))
 
 # Load model and set it in evaluation mode
 Classifier = multilabel_classifier(device, dtype, modelpath=modelpath)
@@ -40,8 +42,16 @@ Classifier.model.eval()
 
 # Get scores for all images
 with torch.no_grad():
-    labels_list = np.array([], dtype=np.float32).reshape(0, 171)
-    scores_list = np.array([], dtype=np.float32).reshape(0, 171)
+    if dataset == 'COCOStuff':
+        num_categs = 171
+    elif dataset == 'AwA':
+        num_categs = 85
+    else:
+        num_categs = 0
+        print('Invalid dataset: {}'.format(dataset))
+
+    labels_list = np.array([], dtype=np.float32).reshape(0, num_categs)
+    scores_list = np.array([], dtype=np.float32).reshape(0, num_categs)
 
     for i, (images, labels, ids) in enumerate(loader):
 
@@ -54,11 +64,11 @@ with torch.no_grad():
 
 # Calculate AP for each category and mAP for all/unbiased categories
 APs = []
-for k in range(171):
+for k in range(num_categs):
     APs.append(average_precision_score(labels_list[:,k], scores_list[:,k]))
 mAP = np.nanmean(APs)
 mAP_unbiased = np.nanmean([APs[i] for i in unbiased_classes_mapped])
-print('mAP: all 171 {:.5f}, unbiased 60 {:.5f}'.format(mAP, mAP_unbiased))
+print('mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(num_categs, mAP, mAP_unbiased))
 
 # Calculate exclusive/co-occur AP for each biased category
 exclusive_AP_list = []

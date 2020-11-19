@@ -9,8 +9,9 @@ from basenet import ResNet50
 
 class multilabel_classifier():
 
-    def __init__(self, device, dtype, modelpath=None):
-        self.model = ResNet50(n_classes=171, pretrained=True)
+    def __init__(self, device, dtype, num_categs=171, modelpath=None):
+        self.model = ResNet50(n_classes=num_categs, pretrained=True)
+        self.num_categs = num_categs
         self.model.require_all_grads()
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.1, momentum=0.9)
         self.device = device
@@ -33,7 +34,7 @@ class multilabel_classifier():
         """Train the model for one epoch"""
 
         self.model = self.model.to(device=self.device, dtype=self.dtype)
-        for i, (images, labels) in enumerate(loader):
+        for i, (images, labels, IDs) in enumerate(loader):
 
             images, labels = images.to(device=self.device, dtype=self.dtype), labels.to(device=self.device, dtype=self.dtype)
 
@@ -58,10 +59,10 @@ class multilabel_classifier():
 
         with torch.no_grad():
 
-            labels_list = np.array([], dtype=np.float32).reshape(0, 171)
-            scores_list = np.array([], dtype=np.float32).reshape(0, 171)
+            labels_list = np.array([], dtype=np.float32).reshape(0, self.num_categs)
+            scores_list = np.array([], dtype=np.float32).reshape(0, self.num_categs)
 
-            for i, (images, labels) in enumerate(loader):
+            for i, (images, labels, IDs) in enumerate(loader):
 
                 images, labels = images.to(device=self.device, dtype=self.dtype), labels.to(device=self.device, dtype=self.dtype)
 
@@ -72,7 +73,7 @@ class multilabel_classifier():
                 scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
 
             APs = []
-            for k in range(171):
+            for k in range(self.num_categs):
                 APs.append(average_precision_score(labels_list[:,k], scores_list[:,k]))
 
             mAP = np.nanmean(APs)
