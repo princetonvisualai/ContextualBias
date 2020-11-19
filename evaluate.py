@@ -1,5 +1,4 @@
-import pickle
-import time
+import pickle, time, collections
 import torch
 import numpy as np
 import os
@@ -10,6 +9,7 @@ import time
 from classifier import multilabel_classifier
 from load_data import *
 
+# Specify the model to evaluate
 modelpath = '/n/fs/context-scr/save/stage1/stage1_4.pth'
 print('Loaded model from', modelpath)
 indir = '/n/fs/context-scr/evaldata/train/'
@@ -21,106 +21,64 @@ print('Save evaluation results in', outdir)
 device = torch.device('cuda') # cuda
 dtype = torch.float32
 
+# Load useful files
+biased_classes_mapped = pickle.load(open('/n/fs/context-scr/biased_classes_mapped.pkl', 'rb'))
+unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/unbiased_classes_mapped.pkl', 'rb'))
+humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/humanlabels_to_onehot.pkl', 'rb'))
+onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
+
+# Load dataset to evaluate and create a data loader
+datapath = '/n/fs/context-scr/labels_val.pkl'
+loader = create_dataset(COCOStuff_ID, labels=datapath, B=100)
+labels = pickle.load(open(datapath, 'rb'))
+
+# Load model and set it in evaluation mode
 Classifier = multilabel_classifier(device, dtype, modelpath=modelpath)
+print('Loaded model from', modelpath)
 Classifier.model.cuda()
 Classifier.model.eval()
 
-biased_classes = pickle.load(open('/n/fs/context-scr/biased_classes.pkl', 'rb'))
-humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/humanlabels_to_onehot.pkl', 'rb'))
+# Get scores for all images
+with torch.no_grad():
+    labels_list = np.array([], dtype=np.float32).reshape(0, 171)
+    scores_list = np.array([], dtype=np.float32).reshape(0, 171)
 
-start_time = time.time()
+    for i, (images, labels, ids) in enumerate(loader):
 
-# Evaluate on exclusive and co-occur sets
-exclusive_AP_list = []; exclusive_mAP_list = []
-cooccur_AP_list = []; cooccur_mAP_list = []
+        images, labels = images.to(device=device, dtype=dtype), labels.to(device=device, dtype=dtype)
+        scores, _ = Classifier.forward(images)
+        scores = torch.sigmoid(scores).squeeze()
 
-# Loop over each of the K biased categories
-for b in biased_classes.keys():
+        labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
+        scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
 
-    print('\n{} - {}'.format(b, biased_classes[b]))
+# Calculate AP for each category and mAP for all/unbiased categories
+APs = []
+for k in range(171):
+    APs.append(average_precision_score(labels_list[:,k], scores_list[:,k]))
+mAP = np.nanmean(APs)
+mAP_unbiased = np.nanmean([APs[i] for i in unbiased_classes_mapped])
+print('mAP: all 171 {:.5f}, unbiased 60 {:.5f}'.format(mAP, mAP_unbiased))
 
-    # Exclusive
-    exclusive_labels = '{}/{}_{}_{}.pkl'.format(indir, 'exclusive', b, biased_classes[b])
-    exclusiveset = create_dataset(COCOStuff, labels=exclusive_labels, B=500)
+# Calculate exclusive/co-occur AP for each biased category
+exclusive_AP_list = []
+cooccur_AP_list = []
+for b in biased_classes_mapped.keys():
+    c = biased_classes_mapped[b]
 
-    with torch.no_grad():
-        labels_list = np.array([], dtype=np.float32).reshape(0, 171)
-        scores_list = np.array([], dtype=np.float32).reshape(0, 171)
+    # Put the images into 3 categories
+    exclusive = (labels_list[:,b]==1) & (labels_list[:,c]==0)
+    cooccur = (labels_list[:,b]==1) & (labels_list[:,c]==1)
+    other = (~exclusive) & (~cooccur)
 
-        for i, (images, labels) in enumerate(exclusiveset):
-            t0 = time.perf_counter()
-            images, labels = images.to(device=Classifier.device, dtype=Classifier.dtype), labels.to(device=Classifier.device, dtype=Classifier.dtype)
-            scores, _ = Classifier.forward(images)
-            scores = torch.sigmoid(scores).squeeze()
-            t1 = time.perf_counter()
-            print('Getting exclusive scores: {}s'.format(t1-t0))
-            labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
-            scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
-            #print('     exclusive batch {}/{}, {} seconds'.format(i, len(exclusiveset), time.time()-start_time))
+    # Calculate AP for exclusive and cooccur sets
+    exclusive_AP = average_precision_score(labels_list[exclusive+other,b], scores_list[exclusive+other,b])
+    cooccur_AP = average_precision_score(labels_list[cooccur+other,b], scores_list[cooccur+other,b])
+    exclusive_AP_list.append(exclusive_AP)
+    cooccur_AP_list.append(cooccur_AP)
 
-        t0 = time.perf_counter()
-        with open('{}/labels_exclusive_{}.pkl'.format(outdir, b), 'wb+') as handle:
-            pickle.dump(labels_list, handle)
-        with open('{}/scores_exclusive_{}.pkl'.format(outdir, b), 'wb+') as handle:
-            pickle.dump(scores_list, handle)
-        t1 = time.perf_counter()
-        print('Saving exclusive labels and scores: {}s'.format(t1-t0))
+    print('\n{} - {}'.format(onehot_to_humanlabels[b], onehot_to_humanlabels[c]))
+    print('   exclusive: AP {:.5f}'.format(exclusive_AP*100.))
+    print('   co-occur: AP {:.5f}'.format(cooccur_AP*100.))
 
-        t0 = time.perf_counter()
-        exclusive_APs = []
-        for k in range(171):
-            exclusive_APs.append(average_precision_score(labels_list[:,k], scores_list[:,k]))
-        exclusive_mAP = np.nanmean(exclusive_APs)
-        t1 = time.perf_counter()
-        print('Getting exclusive mAP: {}s'.format(t1-t0))
-
-
-    # Co-occur
-    cooccur_labels = '{}/{}_{}_{}.pkl'.format(indir, 'cooccur', b, biased_classes[b])
-    cooccurset = create_dataset(COCOStuff, labels=cooccur_labels, B=500)
-
-    with torch.no_grad():
-        labels_list = np.array([], dtype=np.float32).reshape(0, 171)
-        scores_list = np.array([], dtype=np.float32).reshape(0, 171)
-
-        for i, (images, labels) in enumerate(cooccurset):
-            t0 = time.perf_counter()
-            images, labels = images.to(device=Classifier.device, dtype=Classifier.dtype), labels.to(device=Classifier.device, dtype=Classifier.dtype)
-            scores, _ = Classifier.forward(images)
-            scores = torch.sigmoid(scores).squeeze()
-            t1 = time.perf_counter()
-            print('Getting co-occur scores: {}s'.format(t1-t0))
-            labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
-            scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
-            #print('     cooccur batch {}/{}, {} seconds'.format(i, len(cooccurset), time.time()-start_time))
-
-        t0 = time.perf_counter()
-        with open('{}/labels_cooccur_{}.pkl'.format(outdir, b), 'wb+') as handle:
-            pickle.dump(labels_list, handle)
-        with open('{}/scores_cooccur_{}.pkl'.format(outdir, b), 'wb+') as handle:
-            pickle.dump(scores_list, handle)
-        t1 = time.perf_counter()
-        print('Saving exclusive labels and scores: {}s'.format(t1-t0))
-
-        t0 = time.perf_counter()
-        cooccur_APs = []
-        for k in range(171):
-            cooccur_APs.append(average_precision_score(labels_list[:,k], scores_list[:,k]))
-        cooccur_mAP = np.nanmean(cooccur_APs)
-        t1 = time.perf_counter()
-        print('Getting exclusive mAP: {}s'.format(t1-t0))
-
-
-    # Save values in a list and print
-    exclusive_AP_list.append(exclusive_APs[humanlabels_to_onehot[b]])
-    cooccur_AP_list.append(cooccur_APs[humanlabels_to_onehot[b]])
-    exclusive_mAP_list.append(exclusive_mAP)
-    cooccur_mAP_list.append(cooccur_mAP)
-
-    print('\n{} - {}'.format(b, biased_classes[b]))
-    print('   exclusive: AP {:.5f}'.format(exclusive_APs[humanlabels_to_onehot[b]]))
-    print('   co-occur: AP {:.5f}'.format(cooccur_APs[humanlabels_to_onehot[b]]))
-
-
-print()
-print('Validation mean of biased class APs: exclusive {:.5f}, co-occur {:.5f}'.format(np.mean(exclusive_AP_list), np.mean(cooccur_AP_list)))
+print('Mean: exclusive {:.5f}, co-occur {:.5f}'.format(np.mean(exclusive_AP_list)*100., np.mean(cooccur_AP_list)*100.))
