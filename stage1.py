@@ -1,26 +1,32 @@
 import pickle
 import time
-from os import path, mkdir
+import os
 import torch
 import numpy as np
+import sys
 
 from classifier import multilabel_classifier
 from load_data import *
 
-nepochs = 100
+# Example use case:
+# python stage1.py COCOStuff 100
+
 modelpath = None # None if we're training from scratch. Otherwise put the previous model checkpoint.
 
 # Create data loader
-trainset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_train.pkl', B=100) # instead of 200
-valset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_val.pkl', B=500)
+dataset = sys.argv[1]
+trainset = create_dataset(dataset, labels='{}/labels_train.pkl'.format(dataset), B=100) # instead of 200
+valset = create_dataset(dataset, labels='{}/labels_val.pkl'.format(dataset), B=500)
+
+nepochs = sys.argv[2]
 print('Created train and val datasets \n')
 
-unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/unbiased_classes_mapped.pkl', 'rb'))
+unbiased_classes_mapped = pickle.load(open('{}/unbiased_classes_mapped.pkl'.format(dataset), 'rb'))
 
 # Create output directory
-outdir = '/n/fs/context-scr/save/stage1'
-if not path.isdir(outdir):
-    mkdir(outdir)
+outdir = '{}/save/stage1'.format(dataset)
+if not os.path.isdir(outdir):
+    os.makedirs(outdir)
     print('Created', outdir, '\n')
 
 # Start stage 1 training
