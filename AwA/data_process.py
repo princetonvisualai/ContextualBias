@@ -18,9 +18,9 @@ for i in range(1, 51):
 # Load predicate labels
 predicates_txt = open('{}/predicates.txt'.format(datadir), "r")
 predicates_txt = predicates_txt.read().split('\n')
-predicatelabels = {}
+humanlabels = {}
 for i in range(1, 86):
-    predicatelabels[i] = predicates_txt[i][7:]
+    humanlabels[i] = predicates_txt[i-1][7:]
 
 # Create a dictionary that maps human-readable class labels to [0-49]
 classlabels_to_onehot = {}
@@ -31,12 +31,12 @@ with open('classlabels_to_onehot.pkl', 'wb+') as handle:
 print('Saved classlabels_to_onehot.pkl')
 
 # Create a dictionary that maps human-readable predicate labels to [0-84]
-predicatelabels_to_onehot = {}
+humanlabels_to_onehot = {}
 for i in range(85):
-    predicatelabels_to_onehot[predicatelabels[i+1]] = i
-with open('predicatelabels_to_onehot.pkl', 'wb+') as handle:
-    pickle.dump(predicatelabels_to_onehot, handle)
-print('Saved predicatelabels_to_onehot.pkl')
+    humanlabels_to_onehot[humanlabels[i+1]] = i
+with open('humanlabels_to_onehot.pkl', 'wb+') as handle:
+    pickle.dump(humanlabels_to_onehot, handle)
+print('Saved humanlabels_to_onehot.pkl')
 
 # Create a dictionary mapping onehot class label to predicates
 predicate_matrix_txt = open('{}/predicate-matrix-binary.txt'.format(datadir), "r")
@@ -90,8 +90,6 @@ if True:
         labels[file] = label_onehot # Save the one-hot encoded label
 
         count += 1
-        if count%1000 == 0:
-            print(count, time.time()-start_time)
 
     print('Finished processing {} test labels'.format(len(labels)))
     with open('labels_test.pkl', 'wb+') as handle:
@@ -111,8 +109,6 @@ if True:
         labels[file] = label_onehot # Save the one-hot encoded label
 
         count += 1
-        if count%1000 == 0:
-            print(count, time.time()-start_time)
 
     print('Finished processing {} train labels'.format(len(labels)))
     with open('labels_train.pkl', 'wb+') as handle:
