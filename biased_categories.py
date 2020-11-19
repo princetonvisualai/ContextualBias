@@ -5,6 +5,7 @@ import torch
 import numpy as np
 from PIL import Image
 import collections
+import sys
 
 # Return bias value, given categories b, z, lists of images with these categories
 # (imgs_b, imgs_z), a list of images where b and z co-occur (co-ooccur), and a
@@ -41,16 +42,18 @@ def get_pair_bias(b, z, scores_val, CO_OCCUR_PERCENT=0.1):
         print('WARNING: Categories {} and {} co-occur infrequently'.format(b, z))
     return bias(b, z, imgs_b, imgs_z, co_occur, scores_val)
 
+dataset = sys.argv[1]
+
 # Load files
-labels_val = pickle.load(open('/n/fs/context-scr/labels_train_20.pkl', 'rb'))
-scores_val = pickle.load(open('/n/fs/context-scr/scores_train_20.pkl', 'rb'))
-humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/humanlabels_to_onehot.pkl', 'rb'))
+labels_val = pickle.load(open('/n/fs/context-scr/{}/labels_train_20.pkl'.format(dataset), 'rb'))
+scores_val = pickle.load(open('/n/fs/context-scr/{}/scores_train_20.pkl'.format(dataset), 'rb'))
+humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(dataset), 'rb'))
 onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
 # c should co-occur with b at least 10% of the times b appears
 CO_OCCUR_PERCENT = 0.1
 
-# Construct a dictionary whre label_to_img[k] contains filenames of images that
+# Construct a dictionary where label_to_img[k] contains filenames of images that
 # contain label k. k is in [0-170].
 label_to_img = collections.defaultdict(list)
 for img_name in labels_val.keys():
@@ -60,28 +63,8 @@ for img_name in labels_val.keys():
         label_to_img[label].append(img_name)
 
 # Compute biases for 20 categories in paper
-original_biased_pairs = [
-    ['cup', 'dining table'],
-    ['wine glass', 'person'],
-    ['handbag', 'person'],
-    ['apple', 'fruit'],
-    ['car', 'road'],
-    ['bus', 'road'],
-    ['potted plant', 'vase'],
-    ['spoon', 'bowl'],
-    ['microwave', 'oven'],
-    ['keyboard', 'mouse'],
-    ['skis', 'person'],
-    ['clock', 'building-other'],
-    ['sports ball', 'person'],
-    ['remote', 'person'],
-    ['snowboard', 'person'],
-    ['toaster', 'ceiling-other'],
-    ['hair drier', 'towel'],
-    ['tennis racket', 'person'],
-    ['skateboard', 'person'],
-    ['baseball glove', 'person']
-]
+original_biased_pairs = pickle.load(open('{}/biased_classes.pkl'.format(dataset), 'rb'))
+
 if True:
     for pair in original_biased_pairs:
         b = humanlabels_to_onehot[pair[0]]
@@ -92,7 +75,14 @@ if True:
 # Compute top biased pair for each category and record top 20 most biased category pairs
 if False:
     # Calculate bias and get the most biased category for b
-    num_categs = 171
+    if dataset == 'COCOStuff':
+        num_categs = 171
+    elif dataset == 'AwA':
+        num_categs = 85
+    else:
+        num_categs = 0
+        print('Invalid dataset: {}'.format(dataset))
+
     biased_pairs = np.zeros((num_categs, 3)) # 2d array with columns b, c, bias
 
     for b in range(num_categs):
@@ -129,5 +119,5 @@ if False:
         top_20.append([onehot_to_humanlabels[int(biased_pairs[i,0])], onehot_to_humanlabels[int(biased_pairs[i,1])], biased_pairs[i,2]])
 
     data = {'top_20': top_20, 'biased_pairs': biased_pairs}
-    with open('biased_categories.pkl', 'wb') as handle:
+    with open('{}/biased_categories.pkl'.format(dataset), 'wb') as handle:
         pickle.dump(data, handle)
