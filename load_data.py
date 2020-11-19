@@ -47,7 +47,7 @@ def create_dataset(dataset, labels='labels_train.pkl', B=32):
     dataset: string specifying which dataset to create
     '''
 
-    labels_filename = dataset + '/' + labels
+    labels_filename = '/n/fs/context-scr/{}/{}'.format(dataset, labels)
     img_labels = pickle.load(open(labels_filename, 'rb'))
     img_paths = list(img_labels.keys())
     
