@@ -42,7 +42,7 @@ for epoch in range(nepochs):
     # Specialized train()
     train_loss = 0
     Classifier.model = Classifier.model.to(device=Classifier.device, dtype=Classifier.dtype)
-    for i, (images, labels) in enumerate(trainset):
+    for i, (images, labels, IDs) in enumerate(trainset):
 
         # Identify exclusive instances and separate the batch into exclusive and non-exclusive
         exclusive_list = []
@@ -100,7 +100,7 @@ for epoch in range(nepochs):
         else:
             l_exc = 'NA'
 
-        if (i+1)%5 == 0: # CHANGE BACK TO 100
+        if (i+1)%100 == 0: 
             print('Training epoch {} [{}|{}] non-exclusive({}/{}) {}, exclusive({}/{}) {}'.format(Classifier.epoch, i+1, len(trainset), (~exclusive).sum(), len(exclusive), l_non, (exclusive).sum(), len(exclusive),  l_exc), flush=True)
     
     if (epoch+1) % 5 == 0:
