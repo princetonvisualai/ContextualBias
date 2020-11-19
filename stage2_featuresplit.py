@@ -3,34 +3,36 @@ import time
 from os import path, makedirs
 import torch
 import numpy as np
+import sys
 
 from classifier import multilabel_classifier
 from load_data import *
 
-nepochs = 1
+dataset = sys.argv[1]
+nepochs = int(sys.argv[2])
 
 # Feature Split Constant
 FS_CONST = 1024
-modelpath = '/n/fs/context-scr/save/stage1/stage1_4.pth'
+modelpath = '/n/fs/context-scr/{}/save/stage1/stage1_4.pth'.format(dataset)
 
 print('Start stage2 feature-split training from {}'.format(modelpath))
-outdir = 'save/stage2_featuresplit'
+outdir = '{}/save/stage2_featuresplit'.format(dataset)
 if not path.isdir(outdir):
     makedirs(outdir)
 print('Model parameters will be saved in {}'.format(outdir))
 
-weight = pickle.load(open('/n/fs/context-scr/weight_train.pkl', 'rb'))
-weight = torch.Tensor(weight)#.cuda()
-biased_classes_mapped = pickle.load(open('/n/fs/context-scr/biased_classes_mapped.pkl', 'rb'))
+weight = pickle.load(open('/n/fs/context-scr/{}/weight_train.pkl'.format(dataset), 'rb'))
+weight = torch.Tensor(weight).cuda()
+biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(dataset), 'rb'))
 
 # Create data loader
-trainset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_train.pkl', B=100)
-valset = create_dataset(COCOStuff, labels='/n/fs/context-scr/labels_val.pkl', B=500)
+trainset = create_dataset(dataset, labels='labels_train.pkl'.format(dataset), B=100)
+valset = create_dataset(dataset, labels='labels_val.pkl'.format(dataset), B=500)
 print('Created train and val datasets \n')
 
 # Start stage 2 training
 start_time = time.time()
-Classifier = multilabel_classifier(torch.device('cpu'), torch.float32, modelpath=modelpath) # cuda
+Classifier = multilabel_classifier(torch.device('cuda'), torch.float32, modelpath=modelpath)
 Classifier.epoch = 0
 Classifier.optimizer = torch.optim.SGD(Classifier.model.parameters(), lr=0.01, momentum=0.9)
 
