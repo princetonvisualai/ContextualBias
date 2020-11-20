@@ -86,7 +86,8 @@ if True:
 
         # Get the image class and assign the predicate labels
         classlabel = classlabels_to_onehot[file.split('/')[-2]]
-        label_onehot = predicate_matrix[classlabel]
+        label = predicate_matrix[classlabel]
+        label_onehot = torch.LongTensor(label).float()
         labels[file] = label_onehot # Save the one-hot encoded label
 
         count += 1
@@ -105,7 +106,8 @@ if True:
 
         # Get the image class and assign the predicate labels
         classlabel = classlabels_to_onehot[file.split('/')[-2]]
-        label_onehot = predicate_matrix[classlabel]
+        label = predicate_matrix[classlabel]
+        label_onehot = torch.LongTensor(label).float()
         labels[file] = label_onehot # Save the one-hot encoded label
 
         count += 1
