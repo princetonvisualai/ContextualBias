@@ -9,11 +9,11 @@ from basenet import ResNet50
 
 class multilabel_classifier():
 
-    def __init__(self, device, dtype, num_categs=171, modelpath=None):
+    def __init__(self, device, dtype, num_categs=171, learning_rate=0.1, modelpath=None):
         self.model = ResNet50(n_classes=num_categs, pretrained=True)
         self.num_categs = num_categs
         self.model.require_all_grads()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.1, momentum=0.9)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9)
         self.device = device
         self.dtype = dtype
         self.epoch = 0

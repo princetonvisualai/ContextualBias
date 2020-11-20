@@ -31,21 +31,6 @@ stage1_net = multilabel_classifier(torch.device('cuda'), torch.float32, modelpat
 stage1_net.model.cuda()
 stage1_net.model.eval()
 
-# CAM utils
-#def returnCAM(feature_conv, weight_softmax, class_idx):
-#    #size_upsample = (256, 256)
-#    bz, nc, h, w = feature_conv.shape
-#    output_cam = torch.Tensor(0, 7, 7).cuda()
-#    for idx in class_idx:
-#        cam = torch.mm(weight_softmax[idx].unsqueeze(0), feature_conv.reshape((nc, h*w)))
-#        cam = cam.reshape(h, w)
-#        cam = cam - cam.min()
-#        cam_img = cam / cam.max()
-#        #output_cam.append(cv2.resize(cam_img, size_upsample))
-#        output_cam = torch.cat((output_cam, cam_img.unsqueeze(0)), 0)
-#
-#    return output_cam
-
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 preprocess = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor(), normalize])
 

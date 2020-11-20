@@ -9,24 +9,39 @@ import sys
 from classifier import multilabel_classifier
 from load_data import *
 
+# Example usage:
+# python evaluate.py COCOStuff cam 99
+#
+# This will compute mAPs for the model stored at cam_99.pth
+
 dataset = sys.argv[1]
+model = sys.argv[2]
+epoch = int(sys.argv[3])
 
 # Specify the model to evaluate
-modelpath = '{}/save/stage2_cam/stage2_99.pth'.format(dataset)
+if dataset == 'UnRel':
+    modelpath = 'COCOStuff/save/{}/{}_{}.pth'.format(model, model, epoch)
+else:
+    modelpath = '{}/save/{}/{}_{}.pth'.format(dataset, model, model, epoch)
 print('Loaded model from', modelpath)
-indir = '/n/fs/context-scr/{}/evaldata/train/'.format(dataset)
-outdir = '{}/evalresults/stage2_cam/'.format(dataset)
+#indir = '/n/fs/context-scr/{}/evaldata/train/'.format(dataset)
+outdir = '{}/evalresults/{}/'.format(dataset, model)
 if not os.path.exists(outdir):
     os.makedirs(outdir)
 print('Save evaluation results in', outdir)
 
-device = torch.device('cuda')
+device = torch.device('cuda') # cuda
 dtype = torch.float32
 
 # Load useful files
-biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(dataset), 'rb'))
-unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/unbiased_classes_mapped.pkl'.format(dataset), 'rb'))
-humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(dataset), 'rb'))
+if dataset != 'UnRel':
+    biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(dataset), 'rb'))
+    unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/unbiased_classes_mapped.pkl'.format(dataset), 'rb'))
+
+if dataset == 'UnRel': # use COCOStuff labels
+    humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/COCOStuff/humanlabels_to_onehot.pkl', 'rb'))
+else:
+    humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(dataset), 'rb'))
 onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
 # Load dataset to evaluate and create a data loader
@@ -35,7 +50,7 @@ loader = create_dataset(dataset, labels=datapath, B=100)
 labels = pickle.load(open('/n/fs/context-scr/{}/{}'.format(dataset, datapath), 'rb'))
 
 # Load model and set it in evaluation mode
-Classifier = multilabel_classifier(device, dtype, modelpath=modelpath)
+Classifier = multilabel_classifier(device, dtype, num_categs=85, modelpath=modelpath)
 print('Loaded model from', modelpath)
 Classifier.model.cuda()
 Classifier.model.eval()
@@ -46,6 +61,8 @@ with torch.no_grad():
         num_categs = 171
     elif dataset == 'AwA':
         num_categs = 85
+    elif dataset == 'UnRel':
+        num_categs = 171
     else:
         num_categs = 0
         print('Invalid dataset: {}'.format(dataset))
@@ -67,28 +84,31 @@ APs = []
 for k in range(num_categs):
     APs.append(average_precision_score(labels_list[:,k], scores_list[:,k]))
 mAP = np.nanmean(APs)
-mAP_unbiased = np.nanmean([APs[i] for i in unbiased_classes_mapped])
-print('mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(num_categs, mAP, mAP_unbiased))
+if dataset == 'UnRel':
+    print('mAP: all {} {:.5f}'.format(num_categs, mAP))
+else:
+    mAP_unbiased = np.nanmean([APs[i] for i in unbiased_classes_mapped])
+    print('mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(num_categs, mAP, mAP_unbiased))
 
-# Calculate exclusive/co-occur AP for each biased category
-exclusive_AP_list = []
-cooccur_AP_list = []
-for b in biased_classes_mapped.keys():
-    c = biased_classes_mapped[b]
+    # Calculate exclusive/co-occur AP for each biased category
+    exclusive_AP_list = []
+    cooccur_AP_list = []
+    for b in biased_classes_mapped.keys():
+        c = biased_classes_mapped[b]
 
-    # Put the images into 3 categories
-    exclusive = (labels_list[:,b]==1) & (labels_list[:,c]==0)
-    cooccur = (labels_list[:,b]==1) & (labels_list[:,c]==1)
-    other = (~exclusive) & (~cooccur)
+        # Put the images into 3 categories
+        exclusive = (labels_list[:,b]==1) & (labels_list[:,c]==0)
+        cooccur = (labels_list[:,b]==1) & (labels_list[:,c]==1)
+        other = (~exclusive) & (~cooccur)
 
-    # Calculate AP for exclusive and cooccur sets
-    exclusive_AP = average_precision_score(labels_list[exclusive+other,b], scores_list[exclusive+other,b])
-    cooccur_AP = average_precision_score(labels_list[cooccur+other,b], scores_list[cooccur+other,b])
-    exclusive_AP_list.append(exclusive_AP)
-    cooccur_AP_list.append(cooccur_AP)
+        # Calculate AP for exclusive and cooccur sets
+        exclusive_AP = average_precision_score(labels_list[exclusive+other,b], scores_list[exclusive+other,b])
+        cooccur_AP = average_precision_score(labels_list[cooccur+other,b], scores_list[cooccur+other,b])
+        exclusive_AP_list.append(exclusive_AP)
+        cooccur_AP_list.append(cooccur_AP)
 
-    print('\n{} - {}'.format(onehot_to_humanlabels[b], onehot_to_humanlabels[c]))
-    print('   exclusive: AP {:.5f}'.format(exclusive_AP*100.))
-    print('   co-occur: AP {:.5f}'.format(cooccur_AP*100.))
+        print('\n{} - {}'.format(onehot_to_humanlabels[b], onehot_to_humanlabels[c]))
+        print('   exclusive: AP {:.5f}'.format(exclusive_AP*100.))
+        print('   co-occur: AP {:.5f}'.format(cooccur_AP*100.))
 
-print('Mean: exclusive {:.5f}, co-occur {:.5f}'.format(np.mean(exclusive_AP_list)*100., np.mean(cooccur_AP_list)*100.))
+    print('Mean: exclusive {:.5f}, co-occur {:.5f}'.format(np.mean(exclusive_AP_list)*100., np.mean(cooccur_AP_list)*100.))

@@ -32,23 +32,28 @@ if not os.path.isdir(outdir):
 # Initialize classifier
 if dataset == 'COCOStuff':
     num_categs = 171
+    learning_rate = 0.1
 elif dataset == 'AwA':
     num_categs = 85
+    learning_rate = 0.01
 else:
     num_categs = 0
+    learning_rate = 0.01
     print('Invalid dataset: {}'.format(dataset))
 
-Classifier = multilabel_classifier(torch.device('cpu'), torch.float32, num_categs=num_categs, modelpath=modelpath) # cuda
+Classifier = multilabel_classifier(torch.device('cuda'), torch.float32, 
+                                   num_categs=num_categs, learning_rate=learning_rate, 
+                                   modelpath=modelpath) # cuda
 
 # Start stage 1 training
 start_time = time.time()
 for i in range(Classifier.epoch, nepochs):
 
-    if i == 60: # Reduce learning rate from 0.1 to 0.01
+    if dataset == 'COCOStuff' and i == 60: # Reduce learning rate from 0.1 to 0.01
         Classifier.optimizer = torch.optim.SGD(Classifier.model.parameters(), lr=0.01, momentum=0.9)
 
     Classifier.train(trainset)
-    if i%5 == 0:
+    if (i + 1) % 5 == 0:
         Classifier.save_model('{}/stage1_{}.pth'.format(outdir, i))
 
     APs, mAP = Classifier.test(valset)
