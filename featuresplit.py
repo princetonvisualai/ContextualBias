@@ -13,10 +13,10 @@ nepochs = int(sys.argv[2])
 
 # Feature Split Constant
 FS_CONST = 1024
-modelpath = '/n/fs/context-scr/{}/save/stage1/stage1_4.pth'.format(dataset)
+modelpath = '{}/save/featuresplit/featuresplit_79.pth'.format(dataset)
 
-print('Start stage2 feature-split training from {}'.format(modelpath))
-outdir = '{}/save/stage2_featuresplit'.format(dataset)
+print('Start feature-split training from {}'.format(modelpath))
+outdir = '{}/save/featuresplit'.format(dataset)
 if not path.isdir(outdir):
     makedirs(outdir)
 print('Model parameters will be saved in {}'.format(outdir))
@@ -33,11 +33,12 @@ print('Created train and val datasets \n')
 # Start stage 2 training
 start_time = time.time()
 Classifier = multilabel_classifier(torch.device('cuda'), torch.float32, modelpath=modelpath)
-Classifier.epoch = 0
+#Classifier.epoch = 0
+print(Classifier.epoch)
 Classifier.optimizer = torch.optim.SGD(Classifier.model.parameters(), lr=0.01, momentum=0.9)
 
 xs_prev_ten = []
-for epoch in range(nepochs):
+for epoch in range(Classifier.epoch, nepochs):
 
     # Specialized train()
     train_loss = 0
@@ -105,7 +106,7 @@ for epoch in range(nepochs):
     
     if (epoch+1) % 5 == 0:
         print('Saving model')
-        Classifier.save_model('{}/stage2_{}.pth'.format(outdir, Classifier.epoch))
+        Classifier.save_model('{}/featuresplit_{}.pth'.format(outdir, Classifier.epoch))
     Classifier.epoch += 1
     print('Time passed so far: {:.2f} minutes'.format((time.time()-start_time)/60.))
     print()

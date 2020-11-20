@@ -29,9 +29,9 @@ do_save = parser.parse_args().save
 
 datasets = []
 if run_val:
-    datasets.append('{}/labels_val.pkl'.format(dataset))
+    datasets.append('/n/fs/context-scr/{}/labels_val.pkl'.format(dataset))
 if run_train:
-    datasets.append('{}/labels_train.pkl'.format(dataset))
+    datasets.append('/n/fs/context-scr/{}/labels_train.pkl'.format(dataset))
 
 # 20 most biased classes identified in the original paper
 biased_classes = {}
@@ -83,16 +83,17 @@ else:
 with open('{}/biased_classes.pkl'.format(dataset), 'wb+') as handle:
     pickle.dump(biased_classes, handle)
 
-# Map human-readable labels to [0-170] label space used for training classifiers
+# Map human-readable labels to [0-N] label space used for training classifiers
 humanlabels_to_onehot = pickle.load(open('{}/humanlabels_to_onehot.pkl'.format(dataset), 'rb'))
 biased_classes_mapped = dict((humanlabels_to_onehot[key], humanlabels_to_onehot[value]) for (key, value) in biased_classes.items())
 with open('{}/biased_classes_mapped.pkl'.format(dataset), 'wb+') as handle:
     pickle.dump(biased_classes_mapped, handle)
 
 # Save non-biased object classes (80 - 20 things) used in the appendiix
-unbiased_classes_mapped = [i for i in list(np.arange(80)) if i not in biased_classes_mapped.keys()]
-with open('{}/unbiased_classes_mapped.pkl'.format(dataset), 'wb+') as handle:
-    pickle.dump(unbiased_classes_mapped, handle)
+if dataset == 'COCOStuff':
+    unbiased_classes_mapped = [i for i in list(np.arange(80)) if i not in biased_classes_mapped.keys()]
+    with open('{}/unbiased_classes_mapped.pkl'.format(dataset), 'wb+') as handle:
+        pickle.dump(unbiased_classes_mapped, handle)
     
 for dataset_filename in datasets:
     # Construct 'exclusive' and 'co-occur' test distributions fom the dataset
