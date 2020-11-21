@@ -11,7 +11,7 @@ from load_data import *
 # Example use case:
 # python stage1.py COCOStuff 100
 
-modelpath = None # None if we're training from scratch. Otherwise put the previous model checkpoint.
+modelpath = None # if we're training from scratch. Otherwise put the previous model checkpoint.
 
 # Create data loader
 dataset = sys.argv[1]

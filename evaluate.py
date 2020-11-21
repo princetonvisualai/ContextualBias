@@ -49,23 +49,23 @@ datapath = 'labels_val.pkl'
 loader = create_dataset(dataset, labels=datapath, B=100)
 labels = pickle.load(open('/n/fs/context-scr/{}/{}'.format(dataset, datapath), 'rb'))
 
+# Set number of categoriews in dataset
+if dataset == 'COCOStuff' or dataset == 'UnRel':
+    num_categs = 171
+elif dataset == 'AwA':
+    num_categs = 85
+else:
+    num_categs = 0
+    print('Invalid dataset: {}'.format(dataset))
+
 # Load model and set it in evaluation mode
-Classifier = multilabel_classifier(device, dtype, num_categs=85, modelpath=modelpath)
+Classifier = multilabel_classifier(device, dtype, num_categs=num_categs, modelpath=modelpath)
 print('Loaded model from', modelpath)
 Classifier.model.cuda()
 Classifier.model.eval()
 
 # Get scores for all images
 with torch.no_grad():
-    if dataset == 'COCOStuff':
-        num_categs = 171
-    elif dataset == 'AwA':
-        num_categs = 85
-    elif dataset == 'UnRel':
-        num_categs = 171
-    else:
-        num_categs = 0
-        print('Invalid dataset: {}'.format(dataset))
 
     labels_list = np.array([], dtype=np.float32).reshape(0, num_categs)
     scores_list = np.array([], dtype=np.float32).reshape(0, num_categs)
