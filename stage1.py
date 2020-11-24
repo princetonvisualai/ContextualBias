@@ -21,7 +21,8 @@ valset = create_dataset(dataset, labels='labels_val.pkl', B=500)
 nepochs = int(sys.argv[2])
 print('Created train and val datasets \n')
 
-unbiased_classes_mapped = pickle.load(open('{}/unbiased_classes_mapped.pkl'.format(dataset), 'rb'))
+if dataset == 'COCOStuff':
+    unbiased_classes_mapped = pickle.load(open('{}/unbiased_classes_mapped.pkl'.format(dataset), 'rb'))
 
 # Create output directory
 outdir = '{}/save/stage1'.format(dataset)
@@ -36,6 +37,9 @@ if dataset == 'COCOStuff':
 elif dataset == 'AwA':
     num_categs = 85
     learning_rate = 0.01
+elif dataset == 'DeepFashion':
+    num_categs = 250
+    learning_rate = 0.1
 else:
     num_categs = 0
     learning_rate = 0.01
@@ -49,7 +53,7 @@ Classifier = multilabel_classifier(torch.device('cuda'), torch.float32,
 start_time = time.time()
 for i in range(Classifier.epoch, nepochs):
 
-    if dataset == 'COCOStuff' and i == 60: # Reduce learning rate from 0.1 to 0.01
+    if dataset in ['COCOStuff', 'DeepFashion'] and i == 60: # Reduce learning rate from 0.1 to 0.01
         Classifier.optimizer = torch.optim.SGD(Classifier.model.parameters(), lr=0.01, momentum=0.9)
 
     Classifier.train(trainset)
@@ -57,8 +61,11 @@ for i in range(Classifier.epoch, nepochs):
         Classifier.save_model('{}/stage1_{}.pth'.format(outdir, i))
 
     APs, mAP = Classifier.test(valset)
-    mAP_unbiased = np.nanmean([APs[i] for i in unbiased_classes_mapped])
-    print('Validation mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(num_categs, mAP, mAP_unbiased))
+    if dataset == 'COCOStuff':
+        mAP_unbiased = np.nanmean([APs[i] for i in unbiased_classes_mapped])
+        print('Validation mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(num_categs, mAP, mAP_unbiased))
+    else:
+        print('Validation mAP: all {} {:.5f}'.format(num_categs, mAP))
 
     print('Time passed so far: {:.2f} minutes'.format((time.time()-start_time)/60.))
     print()

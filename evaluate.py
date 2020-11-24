@@ -34,7 +34,7 @@ device = torch.device('cuda') # cuda
 dtype = torch.float32
 
 # Load useful files
-if dataset != 'UnRel':
+if dataset == 'COCOStuff':
     biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(dataset), 'rb'))
     unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/unbiased_classes_mapped.pkl'.format(dataset), 'rb'))
 
@@ -54,6 +54,8 @@ if dataset == 'COCOStuff' or dataset == 'UnRel':
     num_categs = 171
 elif dataset == 'AwA':
     num_categs = 85
+elif dataset == 'DeepFashion':
+    num_categs = 250
 else:
     num_categs = 0
     print('Invalid dataset: {}'.format(dataset))
@@ -84,11 +86,11 @@ APs = []
 for k in range(num_categs):
     APs.append(average_precision_score(labels_list[:,k], scores_list[:,k]))
 mAP = np.nanmean(APs)
-if dataset == 'UnRel':
-    print('mAP: all {} {:.5f}'.format(num_categs, mAP))
-else:
+if dataset == 'COCOStuff':
     mAP_unbiased = np.nanmean([APs[i] for i in unbiased_classes_mapped])
     print('mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(num_categs, mAP, mAP_unbiased))
+else:
+    print('mAP: all {} {:.5f}'.format(num_categs, mAP))
 
     # Calculate exclusive/co-occur AP for each biased category
     exclusive_AP_list = []

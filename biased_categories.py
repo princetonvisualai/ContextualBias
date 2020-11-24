@@ -81,7 +81,7 @@ def main():
     # Compute biases for 20 categories in paper
     original_biased_pairs = pickle.load(open('{}/biased_classes.pkl'.format(dataset), 'rb'))
 
-    if False:
+    if True:
         for pair in original_biased_pairs.items():
             b = humanlabels_to_onehot[pair[0]]
             z = humanlabels_to_onehot[pair[1]]
@@ -89,7 +89,7 @@ def main():
             print('({}, {}): {}'.format(pair[0], pair[1], pair_bias))
 
     # Compute top biased pair for each category and record top 20 most biased category pairs
-    if True:
+    if False:
         # Calculate bias and get the most biased category for b 
         biased_pairs = np.zeros((num_categs, 3)) # 2d array with columns b, c, bias
  

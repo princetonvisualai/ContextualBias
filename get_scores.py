@@ -37,7 +37,7 @@ valset = create_dataset(dataset, labels=labels_bias_split, B=BATCH_SIZE)
 print('Batch size {}, Total number of batches {}'.format(BATCH_SIZE, len(valset)))
 
 # Set path to the trained model
-modelpath = '/n/fs/context-scr/{}/save/stage1/stage1_4.pth'.format(dataset)
+modelpath = '/n/fs/context-scr/{}/save/stage1/stage1_99.pth'.format(dataset)
 
 # Load model and set it in evaluation mode
 Classifier = multilabel_classifier(torch.device('cuda'), torch.float32, 

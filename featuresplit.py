@@ -8,12 +8,29 @@ import sys
 from classifier import multilabel_classifier
 from load_data import *
 
+# Example usage:
+# python featuresplit.py COCOStuff 100
+
 dataset = sys.argv[1]
 nepochs = int(sys.argv[2])
 
+if dataset == 'COCOStuff':
+    num_categs = 171
+    learning_rate = 0.01
+elif dataset == 'AwA':
+    num_categs = 85
+    learning_rate = 0.001
+elif dataset == 'DeepFashion':
+    num_categs = 250
+    learning_rate = 0.01
+else:
+    num_categs = 0
+    learning_rate = 0.01
+    print('Invalid dataset: {}'.format(dataset))
+
 # Feature Split Constant
 FS_CONST = 1024
-modelpath = '{}/save/featuresplit/featuresplit_79.pth'.format(dataset)
+modelpath = '{}/save/stage1/stage1_99.pth'.format(dataset)
 
 print('Start feature-split training from {}'.format(modelpath))
 outdir = '{}/save/featuresplit'.format(dataset)
@@ -32,10 +49,11 @@ print('Created train and val datasets \n')
 
 # Start stage 2 training
 start_time = time.time()
-Classifier = multilabel_classifier(torch.device('cuda'), torch.float32, modelpath=modelpath)
-#Classifier.epoch = 0
-print(Classifier.epoch)
-Classifier.optimizer = torch.optim.SGD(Classifier.model.parameters(), lr=0.01, momentum=0.9)
+Classifier = multilabel_classifier(torch.device('cuda'), torch.float32, 
+                                   num_categs=num_categs, modelpath=modelpath)
+Classifier.epoch = 0
+Classifier.optimizer = torch.optim.SGD(Classifier.model.parameters(), lr=learning_rate, momentum=0.9)
+print('Starting training from epoch {}'.format(Classifier.epoch))
 
 xs_prev_ten = []
 for epoch in range(Classifier.epoch, nepochs):

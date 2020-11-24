@@ -78,6 +78,27 @@ elif dataset == 'AwA':
     biased_classes['buckteeth'] = 'smelly'
     biased_classes['slow'] = 'strong'
     biased_classes['blue'] = 'coastal'
+elif dataset == 'DeepFashion': 
+    biased_classes['bell'] = 'lace'
+    biased_classes['cut'] = 'bodycon'
+    biased_classes['animal'] = 'print'
+    biased_classes['flare'] = 'fit'
+    biased_classes['embroidery'] = 'crochet'
+    biased_classes['suede'] = 'fringe'
+    biased_classes['jacquard'] = 'flare'
+    biased_classes['trapeze'] = 'striped'
+    biased_classes['neckline'] = 'sweetheart'
+    biased_classes['retro'] = 'chiffon'
+    biased_classes['sweet'] = 'crochet'
+    biased_classes['batwing'] = 'loose'
+    biased_classes['tassel'] = 'chiffon'
+    biased_classes['boyfriend'] = 'distressed'
+    biased_classes['light'] = 'skinny'
+    biased_classes['ankle'] = 'skinny'
+    biased_classes['french'] = 'terry'
+    biased_classes['dark'] = 'wash'
+    biased_classes['medium'] = 'wash'
+    biased_classes['studded'] = 'denim'
 else:
    print('Invalid dataset: {}'.format(dataset))
 with open('{}/biased_classes.pkl'.format(dataset), 'wb+') as handle:
@@ -89,7 +110,7 @@ biased_classes_mapped = dict((humanlabels_to_onehot[key], humanlabels_to_onehot[
 with open('{}/biased_classes_mapped.pkl'.format(dataset), 'wb+') as handle:
     pickle.dump(biased_classes_mapped, handle)
 
-# Save non-biased object classes (80 - 20 things) used in the appendiix
+# Save non-biased object classes (80 - 20 things) used in the appendix
 if dataset == 'COCOStuff':
     unbiased_classes_mapped = [i for i in list(np.arange(80)) if i not in biased_classes_mapped.keys()]
     with open('{}/unbiased_classes_mapped.pkl'.format(dataset), 'wb+') as handle:
@@ -112,7 +133,7 @@ for dataset_filename in datasets:
         b0c0 = 0
         b0c1 = 0
 
-        # Loop over all 40504 images in the validation set
+        # Loop over all images in the validation set
         for key in labels.keys():
             label = labels[key]
 
@@ -146,9 +167,9 @@ for dataset_filename in datasets:
 
     # Save exclusive and co-occur sets
     if do_save:
-        if dataset_filename == '{}/labels_val.pkl'.format(dataset):
+        if dataset_filename == '/n/fs/context-scr/{}/labels_val.pkl'.format(dataset):
             outdir = '{}/evaldata/val'.format(dataset)
-        elif dataset_filename == '{}/labels_train.pkl'.format(dataset):
+        elif dataset_filename == '/n/fs/context-scr/{}/labels_train.pkl'.format(dataset):
             outdir = '{}/evaldata/train'.format(dataset)
         else:
             outdir = '{}/evaldata/misc'.format(dataset)
