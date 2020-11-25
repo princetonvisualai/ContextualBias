@@ -11,10 +11,10 @@
 #source /n/fs/context-scr/context/bin/activate
 source /n/fs/visualai-scr/sunnie/basic/bin/activate
 
-#python train_models.py --model baseline --batchsize 200 --outdir save
-#python train_models.py --model cam --batchsize 50 --outdir save
-#python train_models.py --model featuresplit --batchsize 100 --outdir save
-#python train_models.py --model removeclabels --batchsize 100 --outdir save
-#python train_models.py --model removecimages --batchsize 100 --outdir save
-#python train_models.py --model negativepenalty --batchsize 100 --outdir save
-python train_models.py --model featuresplit --batchsize 100 --outdir save
+#python train.py --model baseline --batchsize 200 --outdir save
+#python train.py --model cam --batchsize 50 --outdir save
+#python train.py --model featuresplit --batchsize 100 --outdir save
+#python train.py --model removeclabels --batchsize 100 --outdir save
+#python train.py --model removecimages --batchsize 100 --outdir save
+#python train.py --model negativepenalty --batchsize 100 --outdir save
+python train.py --model featuresplit --batchsize 100 --outdir save
