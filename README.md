@@ -14,7 +14,7 @@ This is a non-official implementation of [Don't Judge an Object by Its Context: 
 - **Description**: Do a 80-20 split of the COCO training set to train a model for biased categories identification.
 
 ## Training
-```train_models.py```
+```train.py```
 - **Input**: labels_train.pkl, labels_val.pkl, unbiased_classes_mapped.pkl, biased_classes_mapped.pkl, humanlabels_to_onehot.pkl
 - **Output**: Optimized model parameters
 - **Description**: Trains various models (baseline, cam, featuresplit, removeclabels, removecimages, negativepenalty, classbalancing)
