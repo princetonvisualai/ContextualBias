@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image
 import torch
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.distributed import DistributedSampler
 import torchvision.transforms as T
 from skimage import transform
 
@@ -75,4 +76,40 @@ def create_dataset(dataset, labels='labels_train.pkl', B=32):
 
     loader = DataLoader(dset, batch_size=B, shuffle=shuffle, num_workers=1)
 
+    return loader
+
+def create_dataset_parallel(dataset, rank, args, labels='labels_train.pkl', B=32):
+    '''
+    dataset: str
+
+    creates dataset and loaders for distributed/multi-GPU training
+    '''
+
+    labels_filename = '/n/fs/context-scr/{}/{}'.format(dataset, labels)
+    img_labels = pickle.load(open(labels_filename, 'rb'))
+    img_paths = list(img_labels.keys())
+    
+    normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+    if labels == 'labels_train.pkl':
+        transform = T.Compose([
+            T.Resize(256),
+            T.RandomCrop(224),
+            T.RandomHorizontalFlip(),
+            T.ToTensor(),
+            normalize
+        ])
+    else:
+        transform = T.Compose([
+            T.Resize(224),
+            T.CenterCrop(224),
+            T.ToTensor(),
+            normalize
+        ])
+
+    dset = Dataset(img_paths, img_labels, transform)
+    
+    sampler = DistributedSampler(dset, num_replicas=args.world_size, rank=rank)
+    loader = DataLoader(dset, batch_size=B, shuffle=False, 
+                        num_workers=1, pin_memory=True, sampler=sampler)
     return loader

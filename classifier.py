@@ -5,6 +5,9 @@ import torch
 import torchvision
 from sklearn.metrics import average_precision_score
 
+import torch
+import torch.nn as nn
+
 from basenet import ResNet50
 
 class multilabel_classifier():
