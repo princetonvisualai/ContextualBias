@@ -5,6 +5,7 @@ import os
 from PIL import Image
 from sklearn.metrics import average_precision_score, precision_recall_curve
 import sys
+import torch.nn as nn
 
 from classifier import multilabel_classifier
 from load_data import *
@@ -34,8 +35,8 @@ device = torch.device('cuda') # cuda
 dtype = torch.float32
 
 # Load useful files
+biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(dataset), 'rb'))
 if dataset == 'COCOStuff':
-    biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(dataset), 'rb'))
     unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/unbiased_classes_mapped.pkl'.format(dataset), 'rb'))
 
 if dataset == 'UnRel': # use COCOStuff labels
@@ -61,10 +62,11 @@ else:
     print('Invalid dataset: {}'.format(dataset))
 
 # Load model and set it in evaluation mode
-Classifier = multilabel_classifier(device, dtype, num_categs=num_categs, modelpath=modelpath)
+classifier = multilabel_classifier(device, dtype, num_categs=num_categs, modelpath=modelpath)
+classifier = classifier
 print('Loaded model from', modelpath)
-Classifier.model.cuda()
-Classifier.model.eval()
+classifier.model.cuda()
+classifier.model.eval()
 
 # Get scores for all images
 with torch.no_grad():
@@ -75,7 +77,7 @@ with torch.no_grad():
     for i, (images, labels, ids) in enumerate(loader):
 
         images, labels = images.to(device=device, dtype=dtype), labels.to(device=device, dtype=dtype)
-        scores, _ = Classifier.forward(images)
+        scores, _ = classifier.forward(images)
         scores = torch.sigmoid(scores).squeeze()
 
         labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)

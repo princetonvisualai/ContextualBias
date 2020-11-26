@@ -4,6 +4,7 @@ from PIL import Image
 import torch
 import torchvision
 from sklearn.metrics import average_precision_score
+from collections import OrderedDict
 
 import torch
 import torch.nn as nn
@@ -23,7 +24,14 @@ class multilabel_classifier():
         self.print_freq = 10
         if modelpath != None:
             A = torch.load(modelpath, map_location=device)
-            self.model.load_state_dict(A['model'])
+            state_dict = A['model']
+            new_state_dict = OrderedDict()
+            for k,v in state_dict.items():
+                split = k.index('.') + 1
+                name = k[:split] + 'module.' + k[split:]
+                new_state_dict[name] = v
+            self.model.load_state_dict(new_state_dict)
+            #self.model.load_state_dict(A['model'])
             self.epoch = A['epoch']
 
     def forward(self, x):
