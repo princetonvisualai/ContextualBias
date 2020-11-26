@@ -1,6 +1,6 @@
 # [Re] Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias
 
-This is a non-official implementation of [Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias](https://arxiv.org/abs/2001.03152) (CVPR 2020). We developed this codebase to reproduce the experiments in the paper, as part of our participation in the [ML Reproducibility Challenge 2020](https://paperswithcode.com/rc2020).
+This is a non-official implementation of [Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias (CVPR 2020)](https://arxiv.org/abs/2001.03152). We developed this codebase to reproduce the experiments in the paper, as part of our participation in the [ML Reproducibility Challenge 2020](https://paperswithcode.com/rc2020).
 
 ## Data pre-processing
 ```data_process.py```
