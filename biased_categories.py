@@ -27,20 +27,16 @@ Classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'],
 Classifier.model.cuda()
 Classifier.model.eval()
 
-scores_dict = pickle.load(open('scores_dict.pkl', 'rb'))
-
-#scores_dict = {}
-#with torch.no_grad():
-#    for i, (images, labels, ids) in enumerate(loader):
-#        images = images.to(device=Classifier.device, dtype=Classifier.dtype)
-#        labels = labels.to(device=Classifier.device, dtype=Classifier.dtype)
-#        scores, _ = Classifier.forward(images)
-#        scores = torch.sigmoid(scores).squeeze().data.cpu().numpy()
-#        for j in range(images.shape[0]):
-#            id = ids[j]
-#            scores_dict[id] = scores[j]
-#with open('scores_dict.pkl', 'wb+') as handle:
-#        pickle.dump(scores_dict, handle, protocol=4)
+scores_dict = {}
+with torch.no_grad():
+   for i, (images, labels, ids) in enumerate(loader):
+       images = images.to(device=Classifier.device, dtype=Classifier.dtype)
+       labels = labels.to(device=Classifier.device, dtype=Classifier.dtype)
+       scores, _ = Classifier.forward(images)
+       scores = torch.sigmoid(scores).squeeze().data.cpu().numpy()
+       for j in range(images.shape[0]):
+           id = ids[j]
+           scores_dict[id] = scores[j]
 
 # Construct a dictionary where label_to_img[k] contains filenames of images that
 # contain label k. k is in [0-170].
@@ -96,7 +92,7 @@ for b in range(arg['nclasses']):
 
     c_human = list(humanlabels_to_onehot.keys())[list(humanlabels_to_onehot.values()).index(c)]
     print('\nb {}({}), c {}({})'.format(b, onehot_to_humanlabels[b], c, onehot_to_humanlabels[c]))
-    print('bias {:.4f}, co-occur {}, exclusive {}, total {}'.format(biases_b[c], len(co_occur), 
+    print('bias {:.4f}, co-occur {}, exclusive {}, total {}'.format(biases_b[c], len(co_occur),
         len(imgs_b)-len(co_occur), len(labels_val)))
 
 # Save all bias values
