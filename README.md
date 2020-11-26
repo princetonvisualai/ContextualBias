@@ -13,6 +13,12 @@ This is a non-official implementation of [Don't Judge an Object by Its Context: 
 - **Output**: labels_train_80.pkl, labels_train_20.pkl
 - **Description**: Do a 80-20 split of the COCO training set to train a model for biased categories identification.
 
+## Biased categories identification
+```biased_categories.py```
+- **Input**: labels_train_20.pkl, humanlabels_to_onehot.pkl, path to the model trained on labels_train_80.pkl
+- **Output**: biased_classes.pkl, biased_classes_mapped.pkl, unbiased_classes_mapped.pkl
+- **Description**: Calculates bias and identifies the K=20 most biased categories
+
 ## Training
 ```train.py```
 - **Input**: labels_train.pkl, labels_val.pkl, unbiased_classes_mapped.pkl, biased_classes_mapped.pkl, humanlabels_to_onehot.pkl
@@ -24,12 +30,6 @@ This is a non-official implementation of [Don't Judge an Object by Its Context: 
 - **Input**: biased_classes.pkl, humanlabels_to_onehot.pkl, path to the trained model you want to evaluate
 - **Output**: Scores saved in evalresults
 - **Description**: Evaluates a trained model on the exclusive and co-occur test distributions.
-
-## Biased categories identification
-```biased_categories.py```
-- **Input**: labels_train_20.pkl, humanlabels_to_onehot.pkl, path to the model trained on labels_train_80.pkl
-- **Output**: K=20 biased categories
-- **Description**: Calculates bias and identifies the K=20 most biased categories
 
 ## Utils
 ```load_data.py```
