@@ -5,7 +5,6 @@ import numpy as np
 from PIL import Image
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torch.utils.data.distributed import DistributedSampler
 import torchvision.transforms as T
 from skimage import transform
 
@@ -26,35 +25,57 @@ class Dataset(Dataset): # rename something different from Dataset?
 
         return X, y, ID
 
-#class Dataset_ID(Dataset):
-#    def __init__(self, img_paths, img_labels, transform=T.ToTensor()):
-#        self.img_paths = img_paths
-#        self.img_labels = img_labels
-#        self.transform = transform
-#
-#    def __len__(self):
-#        return len(self.img_paths)
-#
-#    def __getitem__(self, index):
-#        ID = self.img_paths[index]
-#        img = Image.open(ID).convert('RGB')
-#        X = self.transform(img)
-#        y = self.img_labels[ID]
-#
-#        return X, y, ID
+def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=True, removeclabels=False, removecimages=False, splitbiased=False):
 
-def create_dataset(dataset, labels='labels_train.pkl', B=32):
-    '''
-    dataset: string specifying which dataset to create
-    '''
+    img_labels = pickle.load(open(labels_path, 'rb'))
+    img_paths = sorted(list(img_labels.keys()))
 
-    labels_filename = '/n/fs/context-scr/{}/{}'.format(dataset, labels)
-    img_labels = pickle.load(open(labels_filename, 'rb'))
-    img_paths = list(img_labels.keys())
-    
+    # Strong baseline - remove co-occuring labels
+    if removeclabels:
+        for i, img_path in enumerate(img_labels):
+            for b in biased_classes_mapped.keys():
+                c = biased_classes_mapped[b]
+                if img_labels[img_path][b] == 1:
+                    img_labels[img_path][c] == 0
+
+    # Strong baseline - remove co-occuring images
+    if removecimages:
+        remove_img_paths = []
+        for i, img_path in enumerate(img_labels):
+            for b in biased_classes_mapped.keys():
+                c = biased_classes_mapped[b]
+                if (img_labels[img_path][b] == 1) and (img_labels[img_path][c] == 1):
+                    remove_img_paths.append(img_path)
+                    break
+
+        for remove_img_path in remove_img_paths:
+            del img_labels[remove_img_path]
+            img_paths.remove(remove_img_path)
+
+    # Strong baseline - split biased category into exclusive and co-occuring
+    if splitbiased:
+        biased_classes_list = sorted(list(biased_classes_mapped.keys()))
+        for i, img_path in enumerate(img_labels):
+            for k in range(len(biased_classes_list)):
+                b = biased_classes_list[k]
+                c = biased_classes_mapped[b]
+                label = img_labels[img_path]
+
+                # If b and c co-occur, make b label 0 and 171+b label 1
+                # so as to separate exclusive and co-occur labels
+                addlabel = torch.zeros((20))
+                if (label[b]==1) and (label[c]==1):
+                    label[b] = 0
+                    addlabel[k] = 1
+
+                # Replace the 171-D label with new 191-D label
+                newlabel = torch.cat((label, addlabel))
+                img_labels[img_path] = newlabel
+
+    # Common from here
     normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
-    if labels == 'labels_train.pkl':
+    if train:
         transform = T.Compose([
             T.Resize(256),
             T.RandomCrop(224),
@@ -78,38 +99,21 @@ def create_dataset(dataset, labels='labels_train.pkl', B=32):
 
     return loader
 
-def create_dataset_parallel(dataset, rank, args, labels='labels_train.pkl', B=32):
-    '''
-    dataset: str
+# Calculate weights used in the feature-splitting method
+def calculate_weight(labels_path, nclasses, biased_classes_mapped, humanlabels_to_onehot):
 
-    creates dataset and loaders for distributed/multi-GPU training
-    '''
+    labels = pickle.load(open(labels_path, 'rb'))
 
-    labels_filename = '/n/fs/context-scr/{}/{}'.format(dataset, labels)
-    img_labels = pickle.load(open(labels_filename, 'rb'))
-    img_paths = list(img_labels.keys())
-    
-    normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    w = torch.ones(nclasses)
+    for b in biased_classes_mapped.keys():
+        exclusive = 0; cooccur = 0
+        for key in labels.keys():
+            if labels[key][b]==1 and labels[key][biased_classes_mapped[b]]==1:
+                cooccur += 1
+            elif labels[key][b]==1 and labels[key][biased_classes_mapped[b]]==0:
+                exclusive += 1
+        alpha = np.sqrt(cooccur/exclusive)
+        if alpha > 1:
+            w[b] = alpha
 
-    if labels == 'labels_train.pkl':
-        transform = T.Compose([
-            T.Resize(256),
-            T.RandomCrop(224),
-            T.RandomHorizontalFlip(),
-            T.ToTensor(),
-            normalize
-        ])
-    else:
-        transform = T.Compose([
-            T.Resize(224),
-            T.CenterCrop(224),
-            T.ToTensor(),
-            normalize
-        ])
-
-    dset = Dataset(img_paths, img_labels, transform)
-    
-    sampler = DistributedSampler(dset, num_replicas=args.world_size, rank=rank)
-    loader = DataLoader(dset, batch_size=B, shuffle=False, 
-                        num_workers=1, pin_memory=True, sampler=sampler)
-    return loader
+    return w

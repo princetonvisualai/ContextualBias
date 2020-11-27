@@ -15,7 +15,7 @@ for i in range(1, 183):
 # Remove 'bad' classes based on https://github.com/nightrome/cocostuff/blob/master/labels.md
 bad_classes = ['street sign', 'hat', 'shoe', 'eye glasses', 'plate', 'mirror',
     'window', 'desk', 'door', 'blender', 'hair brush']
-humanlabels_171 = [humanlabels[i] for i in range(1, 183) if humanlabels[i] not in bad_classes]
+humanlabels_171 = [x for x in humanlabels.values() if x not in bad_classes]
 
 # Create a dictionary that maps human-readable labels to [0-170]
 humanlabels_to_onehot = {}
