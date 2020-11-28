@@ -1,5 +1,5 @@
 import pickle, time, argparse
-from os import path, mkdir
+from os import path, makedirs
 import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -33,7 +33,7 @@ print('\n', arg, '\n')
 
 # Create output directory
 if not path.isdir(arg['outdir']):
-    mkdir(arg['outdir'])
+    makedirs(arg['outdir'])
 
 # Load utility files
 biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))

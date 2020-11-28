@@ -20,4 +20,4 @@ source /n/fs/context-scr/context/bin/activate
 #python train.py --model negativepenalty --batchsize 100 --outdir save
 #python train.py --model featuresplit --batchsize 100 --outdir save
 
-python train.py --dataset AwA --model baseline --batchsize 200 --nclasses 85 --labels_train /n/fs/context-scr/AwA/labels_train.pkl --labels_val /n/fs/context-scr/AwA/labels_val.pkl --learning_rate 0.5 --outdir AwA/save
+python train.py --dataset AwA --model baseline --batchsize 200 --nclasses 85 --labels_train /n/fs/context-scr/AwA/labels_train.pkl --labels_val /n/fs/context-scr/AwA/labels_val.pkl --learning_rate 0.1 --outdir AwA/save/baseline2

@@ -13,6 +13,7 @@ parser.add_argument('--modelpath', type=str, default=None)
 parser.add_argument('--labels', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
 parser.add_argument('--batchsize', type=int, default=200)
 parser.add_argument('--nclasses', type=int, default=171)
+parser.add_argument('--splitbiased', type=bool, default=False)
 parser.add_argument('--device', default=torch.device('cuda'))
 parser.add_argument('--dtype', default=torch.float32)
 arg = vars(parser.parse_args())
@@ -53,7 +54,7 @@ for k in range(len(biased_classes_list)):
     c = biased_classes_mapped[b]
 
     # Categorize the images into co-occur/exclusive/other
-    if splitbiased:
+    if arg['splitbiased']:
         cooccur = (labels_list[:,arg['nclasses']+k]==1)
         exclusive = (labels_list[:,b]==1)
     else:
@@ -62,7 +63,7 @@ for k in range(len(biased_classes_list)):
     other = (~exclusive) & (~cooccur)
 
     # Calculate AP for co-occur/exclusive sets
-    if splitbiased:
+    if arg['splitbiased']:
         cooccur_AP = average_precision_score(labels_list[cooccur+other, arg['nclasses']+k],
             scores_list[cooccur+other, arg['nclasses']+k])
     else:
