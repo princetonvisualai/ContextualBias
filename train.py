@@ -16,9 +16,10 @@ parser.add_argument('--model', type=str, default='baseline',
 parser.add_argument('--nepoch', type=int, default=100)
 parser.add_argument('--learning_rate', type=float, default=0.1)
 parser.add_argument('--batchsize', type=int, default=200)
+parser.add_argument('--lr', type=float, default=0.1)
 parser.add_argument('--nclasses', type=int, default=171)
 parser.add_argument('--modelpath', type=str, default=None)
-parser.add_argument('--pretrainedpath', type=str, default='/n/fs/context-scr/COCOStuff/save/stage1/stage1_4.pth')
+parser.add_argument('--pretrainedpath', type=str)
 parser.add_argument('--outdir', type=str, default='/n/fs/context-scr/COCOStuff/save')
 parser.add_argument('--labels_train', type=str, default='/n/fs/context-scr/COCOStuff/labels_train.pkl')
 parser.add_argument('--labels_val', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
@@ -54,6 +55,8 @@ valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped
 Classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'], modelpath=arg['modelpath'], learning_rate=arg['learning_rate'])
 if arg['model'] == 'cam':
     pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
+Classifier.optimizer = torch.optim.SGD(Classifier.model.parameters(), lr=arg['lr'], momentum=0.9)
+print(Classifier.optimizer)
 
 # Calculate loss weights for the feature-splitting method
 if arg['model'] == 'featuresplit':
@@ -63,6 +66,7 @@ if arg['model'] == 'featuresplit':
 # Start training
 tb = SummaryWriter(log_dir='{}/runs'.format(arg['outdir']))
 start_time = time.time()
+print('\nStarted training at {}\n'.format(start_time))
 for i in range(Classifier.epoch, arg['nepoch']+1):
 
     if i == 60: # Reduce learning rate from 0.1 to 0.01
