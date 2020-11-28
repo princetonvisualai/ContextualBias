@@ -8,7 +8,7 @@ from basenet import ResNet50
 
 class multilabel_classifier():
 
-    def __init__(self, device, dtype, nclasses=171, modelpath=None):
+    def __init__(self, device, dtype, nclasses=171, modelpath=None, learning_rate=0.1):
         self.nclasses = nclasses
         self.model = ResNet50(n_classes=nclasses, pretrained=True)
         self.model.require_all_grads()

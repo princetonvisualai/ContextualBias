@@ -8,7 +8,7 @@ from classifier import multilabel_classifier
 from load_data import *
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', type=str, nargs=1)
+parser.add_argument('--dataset', type=str)
 parser.add_argument('--modelpath', type=str, default=None)
 parser.add_argument('--labels', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
 parser.add_argument('--batchsize', type=int, default=200)
@@ -19,14 +19,14 @@ arg = vars(parser.parse_args())
 print('\n', arg, '\n')
 
 # Load utility files
-biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(args['dataset']), 'rb'))
-if args['dataset'] == 'COCOStuff':
-    unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/unbiased_classes_mapped.pkl'.format(args['dataset']), 'rb'))
-humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(args['dataset']), 'rb'))
+biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+if arg['dataset'] == 'COCOStuff':
+    unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
 onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
 # Create dataloader
-valset = create_dataset(args['dataset'], arg['labels'], biased_classes_mapped, B=arg['batchsize'], train=False)
+valset = create_dataset(arg['dataset'], arg['labels'], biased_classes_mapped, B=arg['batchsize'], train=False)
 
 # Load model
 Classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'])
@@ -40,7 +40,7 @@ for k in range(arg['nclasses']):
     APs.append(average_precision_score(labels_list[:,k], scores_list[:,k]))
 mAP = np.nanmean(APs)
 print('mAP (all): {:.2f}'.format(mAP*100.))
-if args['dataset'] == 'COCOStuff':
+if arg['dataset'] == 'COCOStuff':
     mAP_unbiased = np.nanmean([APs[i] for i in unbiased_classes_mapped])
     print('mAP (unbiased): {:.2f}\n'.format(mAP_unbiased*100.))
 

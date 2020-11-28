@@ -9,10 +9,12 @@ from classifier import multilabel_classifier
 from load_data import *
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--dataset', type=str)
 parser.add_argument('--model', type=str, default='baseline',
     choices=['baseline', 'cam', 'featuresplit',
     'removeclabels', 'removecimages', 'negativepenalty', 'classbalancing'])
 parser.add_argument('--nepoch', type=int, default=100)
+parser.add_argument('--learning_rate', type=float, default=0.1)
 parser.add_argument('--batchsize', type=int, default=200)
 parser.add_argument('--nclasses', type=int, default=171)
 parser.add_argument('--modelpath', type=str, default=None)
@@ -34,21 +36,22 @@ if not path.isdir(arg['outdir']):
     mkdir(arg['outdir'])
 
 # Load utility files
-biased_classes_mapped = pickle.load(open('/n/fs/context-scr/COCOStuff/biased_classes_mapped.pkl', 'rb'))
-unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/COCOStuff/unbiased_classes_mapped.pkl', 'rb'))
-humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/COCOStuff/humanlabels_to_onehot.pkl', 'rb'))
+biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+if arg['dataset'] == 'COCOStuff':
+    unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/COCOStuff/unbiased_classes_mapped.pkl', 'rb'))
+humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
 onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
 # Create data loaders
 removeclabels = True if (arg['model'] == 'removeclabels') else False
 removecimages = True if (arg['model'] == 'removecimages') else False
 splitbiased = True if (arg['model'] == 'splitbiased') else False
-trainset = create_dataset(COCOStuff, arg['labels_train'], biased_classes_mapped, B=arg['batchsize'], train=True,
+trainset = create_dataset(arg['dataset'], arg['labels_train'], biased_classes_mapped, B=arg['batchsize'], train=True,
     removeclabels=removeclabels, removecimages=removecimages, splitbiased=splitbiased)
-valset = create_dataset(COCOStuff, arg['labels_val'], biased_classes_mapped, B=arg['batchsize'], train=False)
+valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped, B=arg['batchsize'], train=False)
 
 # Initialize classifier
-Classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'])
+Classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'], modelpath=arg['modelpath'], learning_rate=arg['learning_rate'])
 if arg['model'] == 'cam':
     pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
 
@@ -95,9 +98,10 @@ for i in range(Classifier.epoch, arg['nepoch']+1):
     for k in range(arg['nclasses']):
         APs.append(average_precision_score(labels_list[:,k], scores_list[:,k]))
     mAP = np.nanmean(APs)
-    mAP_unbiased = np.nanmean([APs[i] for i in unbiased_classes_mapped])
     tb.add_scalar('mAP/all', mAP*100, i)
-    tb.add_scalar('mAP/unbiased', mAP_unbiased*100, i)
+    if arg['dataset'] == 'COCOStuff':
+        mAP_unbiased = np.nanmean([APs[i] for i in unbiased_classes_mapped])
+        tb.add_scalar('mAP/unbiased', mAP_unbiased*100, i)
 
     # Calculate exclusive/co-occur AP for each biased category
     exclusive_AP_dict = {}; cooccur_AP_dict = {}
@@ -134,7 +138,10 @@ for i in range(Classifier.epoch, arg['nepoch']+1):
 
     # Print out information
     print('\nLoss: train {:.5f}, val {:.5f}'.format(np.mean(train_loss_list), np.mean(val_loss_list)))
-    print('Validation mAP: all 171 {:.5f}, unbiased 60 {:.5f}'.format(mAP*100, mAP_unbiased*100))
+    if arg['dataset'] == 'COCOStuff':
+        print('Validation mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(arg['nclasses'], mAP*100, mAP_unbiased*100))
+    else:
+        print('Validation mAP: all {} {:.5f}'.format(arg['nclasses'], mAP*100))
     print('Time passed so far: {:.2f} minutes\n'.format((time.time()-start_time)/60.))
 
 # Close tensorboard logger

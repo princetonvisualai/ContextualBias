@@ -38,7 +38,7 @@ def get_pair_bias(b, z, scores_val, label_to_img, cooccur_thresh):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, nargs=1)
+    parser.add_argument('--dataset', type=str)
     parser.add_argument('--modelpath', type=str, default=None)
     parser.add_argument('--labels', type=str, default='/n/fs/context-scr/COCOStuff/labels_train_20.pkl')
     parser.add_argument('--batchsize', type=int, default=200)
@@ -51,11 +51,11 @@ def main():
 
     # Load files
     labels = pickle.load(open(arg['labels'], 'rb'))
-    humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(args['dataset']), 'rb'))
+    humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
     onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
     # Get scores for the bias split data
-    valset = create_dataset(args['dataset']f, arg['labels'], None, B=arg['batchsize'], train=False)
+    valset = create_dataset(arg['dataset']f, arg['labels'], None, B=arg['batchsize'], train=False)
     Classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'])
     Classifier.model.eval()
     scores_dict = {}
@@ -79,7 +79,7 @@ def main():
             label_to_img[label].append(img_name)
     
     # Compute biases for 20 categories in paper
-    original_biased_pairs = pickle.load(open('{}/biased_classes.pkl'.format(args['dataset']), 'rb'))
+    original_biased_pairs = pickle.load(open('{}/biased_classes.pkl'.format(arg['dataset']), 'rb'))
 
     if True:
         for pair in original_biased_pairs.items():
