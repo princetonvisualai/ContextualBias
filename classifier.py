@@ -19,14 +19,14 @@ class multilabel_classifier():
         self.print_freq = 5
         if modelpath != None:
             A = torch.load(modelpath, map_location=device)
-            state_dict = A['model']
-            new_state_dict = OrderedDict()
-            for k,v in state_dict.items():
-                split = k.index('.') + 1
-                name = k[:split] + 'module.' + k[split:]
-                new_state_dict[name] = v
-            self.model.load_state_dict(new_state_dict)
-            #self.model.load_state_dict(A['model'])
+            #state_dict = A['model']
+            #new_state_dict = OrderedDict()
+            #for k,v in state_dict.items():
+            #    split = k.index('.') + 1
+            #    name = k[:split] + 'module.' + k[split:]
+            #    new_state_dict[name] = v
+            #self.model.load_state_dict(new_state_dict)
+            self.model.load_state_dict(A['model'])
             self.epoch = A['epoch']
 
     def forward(self, x):

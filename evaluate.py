@@ -45,7 +45,8 @@ if arg['dataset'] == 'COCOStuff':
     print('mAP (unbiased): {:.2f}\n'.format(mAP_unbiased*100.))
 
 # Calculate exclusive/co-occur AP for each biased category
-exclusive_AP_list = [], cooccur_AP_list = []
+exclusive_AP_list = []
+cooccur_AP_list = []
 biased_classes_list = sorted(list(biased_classes_mapped.keys()))
 for k in range(len(biased_classes_list)):
     b = biased_classes_list[k]
