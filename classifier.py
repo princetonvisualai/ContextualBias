@@ -8,17 +8,24 @@ from basenet import ResNet50
 
 class multilabel_classifier():
 
-    def __init__(self, device, dtype, nclasses=171, modelpath=None):
+    def __init__(self, device, dtype, nclasses=171, modelpath=None, learning_rate=0.1):
         self.nclasses = nclasses
         self.model = ResNet50(n_classes=nclasses, pretrained=True)
         self.model.require_all_grads()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.1, momentum=0.9)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9)
         self.device = device
         self.dtype = dtype
         self.epoch = 0
         self.print_freq = 5
         if modelpath != None:
             A = torch.load(modelpath, map_location=device)
+            #state_dict = A['model']
+            #new_state_dict = OrderedDict()
+            #for k,v in state_dict.items():
+            #    split = k.index('.') + 1
+            #    name = k[:split] + 'module.' + k[split:]
+            #    new_state_dict[name] = v
+            #self.model.load_state_dict(new_state_dict)
             self.model.load_state_dict(A['model'])
             self.epoch = A['epoch']
 
@@ -180,7 +187,7 @@ class multilabel_classifier():
         return loss_list
 
     def train_weighted(self, loader, biased_classes_mapped, weight=10):
-        """Train the 'strong baseline - negative penalty' model for one epoch"""
+        """Train the 'strong baseline - weighted loss' model for one epoch"""
 
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.model.train()
@@ -195,7 +202,7 @@ class multilabel_classifier():
             criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
             loss_tensor = criterion(outputs.squeeze(), labels)
 
-            # Create a loss weight tensor with a large negative penalty for c
+            # Create a loss weight tensor with a large negative penalty for b
             weight_tensor = torch.ones_like(outputs)
             for b in biased_classes_mapped.keys():
                 c = biased_classes_mapped[b]

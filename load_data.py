@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as T
 from skimage import transform
 
-class COCOStuff(Dataset):
+class Dataset(Dataset): # rename something different from Dataset?
     def __init__(self, img_paths, img_labels, transform=T.ToTensor()):
         self.img_paths = img_paths
         self.img_labels = img_labels
@@ -93,7 +93,7 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
         ])
         shuffle = False
 
-    dset = dataset(img_paths, img_labels, transform)
+    dset = Dataset(img_paths, img_labels, transform)
 
     loader = DataLoader(dset, batch_size=B, shuffle=shuffle, num_workers=1)
 
