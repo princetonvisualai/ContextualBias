@@ -21,10 +21,6 @@ class ResNet50(nn.Module):
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
 
-        # Wrap models in data parallel
-        self.resnet = nn.DataParallel(self.resnet)
-        self.fc = nn.DataParallel(self.fc)
-
     def require_all_grads(self):
         for param in self.parameters():
             param.requires_grad = True
@@ -44,9 +40,6 @@ class ResNet50_base(nn.Module):
         self.resnet.fc = nn.Linear(2048, hidden_size)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
-
-        # Wrap models in data parallel
-        self.resnet = nn.DataParallel(self.resnet)
 
     def require_all_grads(self):
         for param in self.parameters():
