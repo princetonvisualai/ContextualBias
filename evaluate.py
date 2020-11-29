@@ -75,6 +75,6 @@ for k in range(len(biased_classes_list)):
     # Record and print
     cooccur_AP_list.append(cooccur_AP)
     exclusive_AP_list.append(exclusive_AP)
-    print('{} - {}: exclusive {:.2f}, co-occur {:.2f}'.format(onehot_to_humanlabels[b], onehot_to_humanlabels[c], exclusive_AP*100., cooccur_AP*100.))
+    print('{:>15} - {:>15}: exclusive {:.2f}, co-occur {:.2f}'.format(onehot_to_humanlabels[b], onehot_to_humanlabels[c], exclusive_AP*100., cooccur_AP*100.))
 
 print('\nMean: exclusive {:.2f}, co-occur {:.2f}'.format(np.mean(exclusive_AP_list)*100., np.mean(cooccur_AP_list)*100.))
