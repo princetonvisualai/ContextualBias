@@ -2,7 +2,7 @@ import pickle
 import numpy as np
 
 # Load the processed COCO-train labels
-labels_train = pickle.load(open('/n/fs/context-scr/labels_train.pkl', 'rb'))
+labels_train = pickle.load(open('labels_train.pkl', 'rb'))
 
 # Do a 80-20 split of COCO-train
 N = len(list(labels_train.keys()))
