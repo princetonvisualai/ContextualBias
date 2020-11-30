@@ -51,7 +51,7 @@ trainset = create_dataset(arg['dataset'], arg['labels_train'], biased_classes_ma
 valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped, B=arg['batchsize'], train=False)
 
 # Initialize classifier
-Classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'], modelpath=arg['modelpath'], learning_rate=arg['learning_rate'])
+classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'], modelpath=arg['modelpath'], learning_rate=arg['learning_rate'])
 if arg['model'] == 'cam':
     pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
 
@@ -63,31 +63,35 @@ if arg['model'] == 'featuresplit':
 # Start training
 tb = SummaryWriter(log_dir='{}/runs'.format(arg['outdir']))
 start_time = time.time()
-for i in range(Classifier.epoch, arg['nepoch']+1):
+for i in range(classifier.epoch, arg['nepoch']+1):
 
-    if i == 60: # Reduce learning rate from 0.1 to 0.01
-        Classifier.optimizer = torch.optim.SGD(Classifier.model.parameters(), lr=0.01, momentum=0.9)
+    if i == 60 and arg['dataset'] == 'COCOStuff': # Reduce learning rate from 0.1 to 0.01
+        classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9)
+    if i == 10 and arg['dataset'] == 'AwA':
+        classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9)
+    if i == 20 and arg['dataset'] == 'DeepFashion':
+        classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9)
 
     if arg['model'] in ['baseline', 'removeclabels', 'removecimages']:
-        train_loss_list = Classifier.train(trainset)
+        train_loss_list = classifier.train(trainset)
     if arg['model'] == 'negativepenalty':
-        train_loss_list = Classifier.train_negativepenalty(trainset, biased_classes_mapped, penalty=10)
+        train_loss_list = classifier.train_negativepenalty(trainset, biased_classes_mapped, penalty=10)
     if arg['model'] == 'classbalancing':
-        train_loss_list = Classifier.train_classbalancing(trainset, biased_classes_mapped, beta=0.99)
+        train_loss_list = classifier.train_classbalancing(trainset, biased_classes_mapped, beta=0.99)
     if arg['model'] == 'weighted':
-        train_loss_list = Classifier.train_weighted(trainset, biased_classes_mapped, weight=10)
+        train_loss_list = classifier.train_weighted(trainset, biased_classes_mapped, weight=10)
     if arg['model'] == 'cam':
-        train_loss_list = Classifier.train_CAM(trainset, pretrained_net, biased_classes_mapped)
+        train_loss_list = classifier.train_CAM(trainset, pretrained_net, biased_classes_mapped)
     if arg['model'] == 'featuresplit':
         if i == 0:
             xs_prev_ten = []
-        train_loss_list, xs_prev_ten = Classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten)
+        train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten)
 
     # Save the model
-    Classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], i))
+    classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], i))
 
     # Do inference with the model
-    labels_list, scores_list, val_loss_list = Classifier.test(valset)
+    labels_list, scores_list, val_loss_list = classifier.test(valset)
 
     # Record train/val loss
     tb.add_scalar('Loss/Train', np.mean(train_loss_list), i)
