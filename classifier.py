@@ -263,7 +263,7 @@ class multilabel_classifier():
             self.optimizer.zero_grad()
             _, features = self.forward(images)
             #outputs = self.model.fc(self.model.dropout(self.model.relu(features)))
-            outputs = self.model.dropout(self.model.relu(features))
+            outputs = features
 
             # Get CAM from the current network
             CAMs = torch.Tensor(0, 2, 7, 7).to(device=self.device)
@@ -328,7 +328,8 @@ class multilabel_classifier():
             if (~exclusive).sum() > 0:
                 self.optimizer.zero_grad()
                 _, x_non = self.forward(images[~exclusive])
-                out_non = self.model.fc(self.model.dropout(self.model.relu(x_non)))
+                #out_non = self.model.fc(self.model.dropout(self.model.relu(x_non)))
+                out_non = x_non
                 criterion = torch.nn.BCEWithLogitsLoss()
                 loss_non = criterion(out_non, labels[~exclusive])
                 loss_non.backward()
@@ -355,7 +356,7 @@ class multilabel_classifier():
 
                 # Get the loss
                 #out_exc = self.model.fc(self.model.dropout(self.model.relu(x_exc)))
-                out_exc = self.model.dropout(self.model.relu(x_exc))
+                out_exc = x_exc
                 criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
                 loss_exc_tensor = criterion(out_exc, labels[exclusive])
 
