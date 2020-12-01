@@ -16,10 +16,15 @@ class ResNet50(nn.Module):
     def __init__(self, n_classes=1, pretrained=True, hidden_size=2048, dropout=0.5):
         super().__init__()
         self.resnet = torchvision.models.resnet50(pretrained=pretrained)
-        self.resnet.fc = nn.Linear(2048, hidden_size)
-        self.fc = nn.Linear(hidden_size, n_classes)
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(dropout)
+
+        # Uncomment to run using one FC layer (from resnet)
+        self.resnet.fc = nn.Linear(hidden_size, n_classes)
+
+        # Uncomment to run using two FC layers
+        #self.resnet.fc = nn.Linear(2048, hidden_size)
+        #self.fc = nn.Linear(hidden_size, n_classes)
+        #self.relu = nn.ReLU()
+        #self.dropout = nn.Dropout(dropout)
 
     def require_all_grads(self):
         for param in self.parameters():
@@ -27,7 +32,12 @@ class ResNet50(nn.Module):
 
     def forward(self, x):
         features = self.resnet(x)
-        outputs = self.fc(self.dropout(self.relu(features)))
+        
+        # Uncomment to run using one FC layer (from resnet)
+        outputs = features
+
+        # Uncomment to run using two FC layers
+        #outputs = self.fc(self.dropout(self.relu(features)))
 
         return outputs, features
 

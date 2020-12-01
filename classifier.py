@@ -8,9 +8,9 @@ from basenet import ResNet50
 
 class multilabel_classifier():
 
-    def __init__(self, device, dtype, nclasses=171, modelpath=None, learning_rate=0.1):
+    def __init__(self, device, dtype, nclasses=171, modelpath=None, hidden_size=2048, learning_rate=0.1):
         self.nclasses = nclasses
-        self.model = ResNet50(n_classes=nclasses, pretrained=True)
+        self.model = ResNet50(n_classes=nclasses, hidden_size=hidden_size, pretrained=True)
         self.model.require_all_grads()
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9)
         self.device = device
@@ -19,13 +19,6 @@ class multilabel_classifier():
         self.print_freq = 5
         if modelpath != None:
             A = torch.load(modelpath, map_location=device)
-            #state_dict = A['model']
-            #new_state_dict = OrderedDict()
-            #for k,v in state_dict.items():
-            #    split = k.index('.') + 1
-            #    name = k[:split] + 'module.' + k[split:]
-            #    new_state_dict[name] = v
-            #self.model.load_state_dict(new_state_dict)
             self.model.load_state_dict(A['model'])
             self.epoch = A['epoch']
 
@@ -269,7 +262,8 @@ class multilabel_classifier():
             # Get image features
             self.optimizer.zero_grad()
             _, features = self.forward(images)
-            outputs = self.model.fc(self.model.dropout(self.model.relu(features)))
+            #outputs = self.model.fc(self.model.dropout(self.model.relu(features)))
+            outputs = self.model.dropout(self.model.relu(features))
 
             # Get CAM from the current network
             CAMs = torch.Tensor(0, 2, 7, 7).to(device=self.device)
@@ -360,7 +354,8 @@ class multilabel_classifier():
                     x_exc[:, 1024:] = xs_mean.detach()
 
                 # Get the loss
-                out_exc = self.model.fc(self.model.dropout(self.model.relu(x_exc)))
+                #out_exc = self.model.fc(self.model.dropout(self.model.relu(x_exc)))
+                out_exc = self.model.dropout(self.model.relu(x_exc))
                 criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
                 loss_exc_tensor = criterion(out_exc, labels[exclusive])
 
@@ -378,8 +373,10 @@ class multilabel_classifier():
 
                 # Zero out Ws gradients and make an update
                 b_list = [i in exclusive_classes for i in range(self.nclasses)]
-                self.model.fc.weight.grad[b_list, 1024:] = 0.
-                assert not (self.model.fc.weight.grad[b_list, 1024:] != 0.).sum() > 0
+                #self.model.fc.weight.grad[b_list, 1024:] = 0.
+                #assert not (self.model.fc.weight.grad[b_list, 1024:] != 0.).sum() > 0
+                self.model.resnet.fc.weight.grad[b_list, 1024:] = 0.
+                assert not (self.model.resnet.fc.weight.grad[b_list, 1024:] != 0.).sum() > 0
                 self.optimizer.step()
 
                 l_exc = loss_exc.item()
