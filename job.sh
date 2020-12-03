@@ -8,24 +8,25 @@
 #SBATCH --gres=gpu:rtx_3090:1  # number of GPUs requested
 #SBATCH -t 60:00:00            # time requested in hour:minute:second
 
-#source /n/fs/context-scr/context/bin/activate # for RTX3090
-source /n/fs/visualai-scr/sunnie/basic/bin/activate # for non-RTX3090
+source /n/fs/context-scr/context/bin/activate # for RTX3090
+#source /n/fs/visualai-scr/sunnie/basic/bin/activate # for non-RTX3090
 
 ### COCO-Stuff
-python train.py --dataset COCOStuff --model baseline --batchsize 200 \
-    --save weight_decay/COCOStuff/save/0
+# python train.py --dataset COCOStuff --model baseline --batchsize 200 \
+#     --save weight_decay/COCOStuff/save/0
 
 
 
 ### AwA
-#python train.py --dataset AwA --model baseline --nepoch 20 --batchsize 200 --nclasses 85 \
-#  --lr 0.1 --wd 0.0001 --hs 1024 \
-#  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
-#  --labels_val /n/fs/context-scr/AwA/labels_val.pkl \
-#  --outdir AwA/save/baseline_2FC_1024
+python train.py --dataset AwA --model baseline --nepoch 50 --batchsize 200 --nclasses 85 \
+  --lr 0.01 --wd 0.0001 \
+  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
+  --labels_val /n/fs/context-scr/AwA/labels_val.pkl \
+  --outdir AwA/save/baseline_2
 
 ### DeepFashion
-# python train.py --dataset DeepFashion --model baseline --batchsize 200 --nclasses 250 \
-#   --labels_train /n/fs/context-scr/DeepFashion/labels_train.pkl \
-#   --labels_val /n/fs/context-scr/DeepFashion/labels_val.pkl \
-#   --learning_rate 0.1 --outdir DeepFashion/save
+#python train.py --dataset DeepFashion --model baseline --nepoch 50 --batchsize 200 --nclasses 250 \
+#  --lr 0.1 --wd 0.0001 \
+#  --labels_train /n/fs/context-scr/DeepFashion/labels_train.pkl \
+#  --labels_val /n/fs/context-scr/DeepFashion/labels_val.pkl \
+#  --outdir DeepFashion/save/baseline_lr2
