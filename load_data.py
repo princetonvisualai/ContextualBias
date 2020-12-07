@@ -83,13 +83,24 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
             T.ToTensor(),
             normalize
         ])
+        #transform = T.Compose([
+        #    T.RandomResizedCrop(224),
+        #    T.RandomHorizontalFlip(),
+        #    T.ToTensor(),
+        #    normalize
+        #])
         shuffle = True
     else:
+        #transform = T.Compose([
+        #    T.Resize(256),
+        #    T.CenterCrop(224),
+        #    T.ToTensor(),
+        #    normalize
+        #])
         transform = T.Compose([
-            T.Resize(224),
-            T.CenterCrop(224),
-            T.ToTensor(),
-            normalize
+            T.Resize(256),
+            T.TenCrop(224),
+            T.Lambda(lambda crops: torch.stack([T.ToTensor()(crop) for crop in crops]))
         ])
         shuffle = False
 

@@ -31,10 +31,10 @@ onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 valset = create_dataset(arg['dataset'], arg['labels'], biased_classes_mapped, B=arg['batchsize'], train=False)
 
 # Load model
-Classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'], hidden_size=arg['hs'])
+classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'], hidden_size=arg['hs'])
 
 # Do inference with the model
-labels_list, scores_list, val_loss_list = Classifier.test(valset)
+labels_list, scores_list, val_loss_list = classifier.test(valset)
 
 # Calculate and record mAP
 APs = []
