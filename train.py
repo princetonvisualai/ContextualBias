@@ -75,7 +75,7 @@ for i in range(classifier.epoch, arg['nepoch']+1):
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9, weight_decay=arg['wd'])
     if i == 10 and arg['dataset'] == 'AwA':
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.001, momentum=0.9, weight_decay=arg['wd'])
-    if i == 20 and arg['dataset'] == 'DeepFashion':
+    if i == 30 and arg['dataset'] == 'DeepFashion':
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9, weight_decay=arg['wd'])
 
     if arg['model'] in ['baseline', 'removeclabels', 'removecimages']:
