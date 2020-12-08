@@ -76,19 +76,22 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
     normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
     if train:
-        transform = T.Compose([
-            T.Resize(256),
-            T.RandomCrop(224),
-            T.RandomHorizontalFlip(),
-            T.ToTensor(),
-            normalize
-        ])
-        #transform = T.Compose([
-        #    T.RandomResizedCrop(224),
-        #    T.RandomHorizontalFlip(),
-        #    T.ToTensor(),
-        #    normalize
-        #])
+        random_resize = True
+        if random_resize:
+            transform = T.Compose([
+                T.RandomResizedCrop(224),
+                T.RandomHorizontalFlip(),
+                T.ToTensor(),
+                normalize
+            ])
+        else:
+            transform = T.Compose([
+                T.Resize(256),
+                T.RandomCrop(224),
+                T.RandomHorizontalFlip(),
+                T.ToTensor(),
+                normalize
+            ])
         shuffle = True
     else:
         #transform = T.Compose([
