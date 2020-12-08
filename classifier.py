@@ -9,11 +9,11 @@ from basenet import ResNet50
 
 class multilabel_classifier():
 
-    def __init__(self, device, dtype, nclasses=171, modelpath=None, hidden_size=2048, learning_rate=0.1):
+    def __init__(self, device, dtype, nclasses=171, modelpath=None, hidden_size=2048, learning_rate=0.1, weight_decay=1e-4):
         self.nclasses = nclasses
         self.model = ResNet50(n_classes=nclasses, hidden_size=hidden_size, pretrained=True)
         self.model.require_all_grads()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=weight_decay)
         self.device = device
         self.dtype = dtype
         self.epoch = 0
@@ -265,7 +265,6 @@ class multilabel_classifier():
             # Get image features
             self.optimizer.zero_grad()
             _, features = self.forward(images)
-            #outputs = self.model.fc(self.model.dropout(self.model.relu(features)))
             outputs = features
 
             # Get CAM from the current network
@@ -358,7 +357,6 @@ class multilabel_classifier():
                     x_exc[:, 1024:] = xs_mean.detach()
 
                 # Get the loss
-                #out_exc = self.model.fc(self.model.dropout(self.model.relu(x_exc)))
                 out_exc = x_exc
                 criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
                 loss_exc_tensor = criterion(out_exc, labels[exclusive])

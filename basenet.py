@@ -21,11 +21,13 @@ class ResNet50(nn.Module):
         self.resnet.fc = nn.Linear(hidden_size, n_classes)
 
         # Uncomment to run using two FC layers
-        #self.resnet.fc = nn.Linear(2048, hidden_size)
-        #self.fc = nn.Linear(hidden_size, n_classes)
-        #self.relu = nn.ReLU()
-        #self.dropout = nn.Dropout(dropout)
-
+        '''
+        self.resnet.fc = nn.Linear(2048, hidden_size)
+        self.fc = nn.Linear(hidden_size, n_classes)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
+        '''
+        
     def require_all_grads(self):
         for param in self.parameters():
             param.requires_grad = True
@@ -37,7 +39,7 @@ class ResNet50(nn.Module):
         outputs = features
 
         # Uncomment to run using two FC layers
-        #outputs = self.fc(self.dropout(self.relu(features)))
+        # outputs = self.fc(self.dropout(self.relu(features)))
 
         return outputs, features
 
