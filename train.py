@@ -14,7 +14,8 @@ parser.add_argument('--model', type=str, default='baseline',
     choices=['baseline', 'cam', 'featuresplit',
     'removeclabels', 'removecimages', 'negativepenalty', 'classbalancing'])
 parser.add_argument('--nepoch', type=int, default=100)
-parser.add_argument('--batchsize', type=int, default=200)
+parser.add_argument('--train_batchsize', type=int, default=200)
+parser.add_argument('--test_batchsize', type=int, default=170)
 parser.add_argument('--lr', type=float, default=0.1)
 parser.add_argument('--wd', type=float, default=0.0)
 parser.add_argument('--hs', type=int, default=2048)
@@ -48,9 +49,9 @@ onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 removeclabels = True if (arg['model'] == 'removeclabels') else False
 removecimages = True if (arg['model'] == 'removecimages') else False
 splitbiased = True if (arg['model'] == 'splitbiased') else False
-trainset = create_dataset(arg['dataset'], arg['labels_train'], biased_classes_mapped, B=arg['batchsize'], train=True,
+trainset = create_dataset(arg['dataset'], arg['labels_train'], biased_classes_mapped, B=arg['train_batchsize'], train=True,
     removeclabels=removeclabels, removecimages=removecimages, splitbiased=splitbiased)
-valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped, B=arg['batchsize'], train=False)
+valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped, B=arg['test_batchsize'], train=False)
 
 # Initialize classifier
 classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'], modelpath=arg['modelpath'], hidden_size=arg['hs'], learning_rate=arg['lr'])
@@ -73,8 +74,8 @@ for i in range(classifier.epoch, arg['nepoch']+1):
     if i == 60 and arg['dataset'] == 'COCOStuff': # Reduce learning rate from 0.1 to 0.01
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9, weight_decay=arg['wd'])
     if i == 10 and arg['dataset'] == 'AwA':
-        classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9, weight_decay=arg['wd'])
-    if i == 20 and arg['dataset'] == 'DeepFashion':
+        classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.001, momentum=0.9, weight_decay=arg['wd'])
+    if i == 30 and arg['dataset'] == 'DeepFashion':
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9, weight_decay=arg['wd'])
 
     if arg['model'] in ['baseline', 'removeclabels', 'removecimages']:

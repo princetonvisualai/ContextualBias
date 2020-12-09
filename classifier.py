@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import torch
 import torchvision
+import torchvision.transforms as T
 
 from basenet import ResNet50
 
@@ -45,12 +46,14 @@ class multilabel_classifier():
             for i, (images, labels, ids) in enumerate(loader):
                 images = images.to(device=self.device, dtype=self.dtype)
                 labels = labels.to(device=self.device, dtype=self.dtype)
+                bs, ncrops, c, h, w = images.size()
 
-                outputs, _ = self.forward(images)
+                outputs, _ = self.forward(images.view(-1, c, h, w)) # fuse batch size and ncrops
+                outputs_avg = outputs.view(bs, ncrops, -1).mean(1) # avg over crops
                 criterion = torch.nn.BCEWithLogitsLoss()
-                loss = criterion(outputs.squeeze(), labels)
+                loss = criterion(outputs_avg.squeeze(), labels)
                 loss_list.append(loss.item())
-                scores = torch.sigmoid(outputs).squeeze()
+                scores = torch.sigmoid(outputs_avg).squeeze()
 
                 labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
                 scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
@@ -262,8 +265,7 @@ class multilabel_classifier():
             # Get image features
             self.optimizer.zero_grad()
             _, features = self.forward(images)
-            #outputs = self.model.fc(self.model.dropout(self.model.relu(features)))
-            outputs = self.model.dropout(self.model.relu(features))
+            outputs = features
 
             # Get CAM from the current network
             CAMs = torch.Tensor(0, 2, 7, 7).to(device=self.device)
@@ -328,7 +330,8 @@ class multilabel_classifier():
             if (~exclusive).sum() > 0:
                 self.optimizer.zero_grad()
                 _, x_non = self.forward(images[~exclusive])
-                out_non = self.model.fc(self.model.dropout(self.model.relu(x_non)))
+                #out_non = self.model.fc(self.model.dropout(self.model.relu(x_non)))
+                out_non = x_non
                 criterion = torch.nn.BCEWithLogitsLoss()
                 loss_non = criterion(out_non, labels[~exclusive])
                 loss_non.backward()
@@ -354,8 +357,7 @@ class multilabel_classifier():
                     x_exc[:, 1024:] = xs_mean.detach()
 
                 # Get the loss
-                #out_exc = self.model.fc(self.model.dropout(self.model.relu(x_exc)))
-                out_exc = self.model.dropout(self.model.relu(x_exc))
+                out_exc = x_exc
                 criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
                 loss_exc_tensor = criterion(out_exc, labels[exclusive])
 
