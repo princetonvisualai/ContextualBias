@@ -12,17 +12,31 @@ source /n/fs/context-scr/context/bin/activate # for RTX3090
 #source /n/fs/visualai-scr/sunnie/basic/bin/activate # for non-RTX3090
 
 ### COCO-Stuff
-# python train.py --dataset COCOStuff --model baseline --batchsize 200 \
-#     --save weight_decay/COCOStuff/save/0
+python train.py --dataset COCOStuff --model baseline --batchsize 200 \
+    --outdir save/coco/lr0.1_wd0.00001_b200 --lr 0.1 --wd 0.00001
 
+python train.py --dataset COCOStuff --model baseline --batchsize 200 \
+  --outdir save/coco/lr0.05_wd0.00001_b200 --lr 0.05 --wd 0.00001
+
+python train.py --dataset COCOStuff --model baseline --batchsize 200 \
+  --outdir save/coco/lr0.01_wd0.00001_b200 --lr 0.01 --wd 0.00001
+
+python train.py --dataset COCOStuff --model baseline --batchsize 100 \
+  --outdir save/coco/lr0.1_wd0.00001_b100 --lr 0.1 --wd 0.00001
+
+python train.py --dataset COCOStuff --model baseline --batchsize 100 \
+  --outdir save/coco/lr0.05_wd0.00001_b100 --lr 0.05 --wd 0.00001
+
+python train.py --dataset COCOStuff --model baseline --batchsize 100 \
+    --outdir save/coco/lr0.01_wd0.00001_b100 --lr 0.01 --wd 0.00001
 
 
 ### AwA
-python train.py --dataset AwA --model baseline --nepoch 50 --batchsize 200 --nclasses 85 \
-  --lr 0.01 --wd 0.0001 \
-  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
-  --labels_val /n/fs/context-scr/AwA/labels_val.pkl \
-  --outdir AwA/save/baseline_2
+# python train.py --dataset AwA --model baseline --nepoch 50 --batchsize 200 --nclasses 85 \
+#   --lr 0.01 --wd 0.0001 \
+#   --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
+#   --labels_val /n/fs/context-scr/AwA/labels_val.pkl \
+#   --outdir AwA/save/baseline_2
 
 ### DeepFashion
 #python train.py --dataset DeepFashion --model baseline --nepoch 50 --batchsize 200 --nclasses 250 \

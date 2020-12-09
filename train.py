@@ -146,6 +146,10 @@ for i in range(classifier.epoch, arg['nepoch']+1):
         tb.add_scalar('{}/co-occur'.format(onehot_to_humanlabels[b]), cooccur_AP_dict[b]*100, i)
         tb.add_scalar('{}/exclusive'.format(onehot_to_humanlabels[b]), exclusive_AP_dict[b]*100, i)
 
+    # Record mean co-occur/exclusive AP
+    tb.add_scalar('co-occur', np.mean(list(cooccur_AP_dict.values()))*100, i)
+    tb.add_scalar('exclusive', np.mean(list(exclusive_AP_dict.values()))*100, i)
+
     # Print out information
     print('\nLoss: train {:.5f}, val {:.5f}'.format(np.mean(train_loss_list), np.mean(val_loss_list)))
     if arg['dataset'] == 'COCOStuff':
