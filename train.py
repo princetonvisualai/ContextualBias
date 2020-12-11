@@ -147,15 +147,17 @@ for i in range(classifier.epoch, arg['nepoch']+1):
         tb.add_scalar('{}/exclusive'.format(onehot_to_humanlabels[b]), exclusive_AP_dict[b]*100, i)
 
     # Record mean co-occur/exclusive AP
-    tb.add_scalar('co-occur', np.mean(list(cooccur_AP_dict.values()))*100, i)
-    tb.add_scalar('exclusive', np.mean(list(exclusive_AP_dict.values()))*100, i)
+    tb.add_scalar('mAP/co-occur', np.mean(list(cooccur_AP_dict.values()))*100, i)
+    tb.add_scalar('mAP/exclusive', np.mean(list(exclusive_AP_dict.values()))*100, i)
 
     # Print out information
-    print('\nLoss: train {:.5f}, val {:.5f}'.format(np.mean(train_loss_list), np.mean(val_loss_list)))
+    print('\nEpoch: {}'.format(i))
+    print('Loss: train {:.5f}, val {:.5f}'.format(np.mean(train_loss_list), np.mean(val_loss_list)))
     if arg['dataset'] == 'COCOStuff':
         print('Validation mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(arg['nclasses'], mAP*100, mAP_unbiased*100))
     else:
         print('Validation mAP: all {} {:.5f}'.format(arg['nclasses'], mAP*100))
+    print('Validation mAP: co-occur {:.5f}, exclusive {:.5f}'.format(np.mean(list(cooccur_AP_dict.values()))*100, np.mean(list(exclusive_AP_dict.values()))*100))
     print('Time passed so far: {:.2f} minutes\n'.format((time.time()-start_time)/60.))
 
 # Close tensorboard logger

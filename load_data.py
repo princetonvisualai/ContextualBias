@@ -94,17 +94,20 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
             ])
         shuffle = True
     else:
-        #transform = T.Compose([
-        #    T.Resize(256),
-        #    T.CenterCrop(224),
-        #    T.ToTensor(),
-        #    normalize
-        #])
-        transform = T.Compose([
-            T.Resize(256),
-            T.TenCrop(224),
-            T.Lambda(lambda crops: torch.stack([T.ToTensor()(crop) for crop in crops]))
-        ])
+        center_crop = True
+        if center_crop:
+            transform = T.Compose([
+               T.Resize(256),
+               T.CenterCrop(224),
+               T.ToTensor(),
+               normalize
+            ])
+        else:
+            transform = T.Compose([
+                T.Resize(256),
+                T.TenCrop(224),
+                T.Lambda(lambda crops: torch.stack([T.ToTensor()(crop) for crop in crops]))
+            ])
         shuffle = False
 
     dset = Dataset(img_paths, img_labels, transform)

@@ -46,14 +46,19 @@ class multilabel_classifier():
             for i, (images, labels, ids) in enumerate(loader):
                 images = images.to(device=self.device, dtype=self.dtype)
                 labels = labels.to(device=self.device, dtype=self.dtype)
-                bs, ncrops, c, h, w = images.size()
 
-                outputs, _ = self.forward(images.view(-1, c, h, w)) # fuse batch size and ncrops
-                outputs_avg = outputs.view(bs, ncrops, -1).mean(1) # avg over crops
+                # Center crop
+                outputs, _ = self.forward(images)
+
+                # Ten crop
+                # bs, ncrops, c, h, w = images.size()
+                # outputs, _ = self.forward(images.view(-1, c, h, w)) # fuse batch size and ncrops
+                # outputs = outputs.view(bs, ncrops, -1).mean(1) # avg over crops
+
                 criterion = torch.nn.BCEWithLogitsLoss()
-                loss = criterion(outputs_avg.squeeze(), labels)
+                loss = criterion(outputs.squeeze(), labels)
                 loss_list.append(loss.item())
-                scores = torch.sigmoid(outputs_avg).squeeze()
+                scores = torch.sigmoid(outputs).squeeze()
 
                 labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
                 scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
