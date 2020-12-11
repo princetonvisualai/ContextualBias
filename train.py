@@ -55,10 +55,11 @@ valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped
 
 # Initialize classifier
 classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'], modelpath=arg['modelpath'], hidden_size=arg['hs'], learning_rate=arg['lr'])
+if arg['modelpath'] is not None:
+    classifier.epoch += 1
 if arg['model'] == 'cam':
     pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=0.9, weight_decay=arg['wd'])
-print(classifier.optimizer)
 
 # Calculate loss weights for the feature-splitting method
 if arg['model'] == 'featuresplit':
