@@ -55,8 +55,6 @@ valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped
 
 # Initialize classifier
 classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'], modelpath=arg['modelpath'], hidden_size=arg['hs'], learning_rate=arg['lr'])
-if arg['modelpath'] is not None:
-    classifier.epoch += 1
 if arg['model'] == 'cam':
     pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=0.9, weight_decay=arg['wd'])
@@ -70,7 +68,7 @@ if arg['model'] == 'featuresplit':
 tb = SummaryWriter(log_dir='{}/runs'.format(arg['outdir']))
 start_time = time.time()
 print('\nStarted training at {}\n'.format(start_time))
-for i in range(classifier.epoch, arg['nepoch']+1):
+for i in range(classifier.epoch, classifier.epoch+arg['nepoch']+1):
 
     if i == 60 and arg['dataset'] == 'COCOStuff': # Reduce learning rate from 0.1 to 0.01
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9, weight_decay=arg['wd'])
