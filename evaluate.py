@@ -18,6 +18,8 @@ parser.add_argument('--splitbiased', type=bool, default=False)
 parser.add_argument('--device', default=torch.device('cuda'))
 parser.add_argument('--dtype', default=torch.float32)
 arg = vars(parser.parse_args())
+if arg['splitbiased']:
+    arg['nclasses'] = arg['nclasses'] + 20
 print('\n', arg, '\n')
 
 # Load utility files
@@ -56,7 +58,7 @@ for k in range(len(biased_classes_list)):
 
     # Categorize the images into co-occur/exclusive/other
     if arg['splitbiased']:
-        cooccur = (labels_list[:,arg['nclasses']+k]==1)
+        cooccur = (labels_list[:,arg['nclasses']+k-20]==1)
         exclusive = (labels_list[:,b]==1)
     else:
         cooccur = (labels_list[:,b]==1) & (labels_list[:,c]==1)
@@ -65,8 +67,8 @@ for k in range(len(biased_classes_list)):
 
     # Calculate AP for co-occur/exclusive sets
     if arg['splitbiased']:
-        cooccur_AP = average_precision_score(labels_list[cooccur+other, arg['nclasses']+k],
-            scores_list[cooccur+other, arg['nclasses']+k])
+        cooccur_AP = average_precision_score(labels_list[cooccur+other, arg['nclasses']+k-20],
+            scores_list[cooccur+other, arg['nclasses']+k-20])
     else:
         cooccur_AP = average_precision_score(labels_list[cooccur+other, b],
             scores_list[cooccur+other, b])

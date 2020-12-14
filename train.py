@@ -11,7 +11,7 @@ from load_data import *
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str)
 parser.add_argument('--model', type=str, default='baseline',
-    choices=['baseline', 'cam', 'featuresplit',
+    choices=['baseline', 'cam', 'featuresplit', 'splitbiased',
     'removeclabels', 'removecimages', 'negativepenalty', 'classbalancing'])
 parser.add_argument('--nepoch', type=int, default=100)
 parser.add_argument('--train_batchsize', type=int, default=200)
@@ -31,7 +31,7 @@ parser.add_argument('--dtype', default=torch.float32)
 arg = vars(parser.parse_args())
 arg['outdir'] = '{}/{}'.format(arg['outdir'], arg['model'])
 if arg['model'] == 'splitbiased':
-    arg['nclasses'] = 171+20
+    arg['nclasses'] = arg['nclasses'] + 20
 print('\n', arg, '\n')
 
 # Create output directory
@@ -49,9 +49,8 @@ onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 removeclabels = True if (arg['model'] == 'removeclabels') else False
 removecimages = True if (arg['model'] == 'removecimages') else False
 splitbiased = True if (arg['model'] == 'splitbiased') else False
-trainset = create_dataset(arg['dataset'], arg['labels_train'], biased_classes_mapped, B=arg['train_batchsize'], train=True,
-    removeclabels=removeclabels, removecimages=removecimages, splitbiased=splitbiased)
-valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped, B=arg['test_batchsize'], train=False)
+trainset = create_dataset(arg['dataset'], arg['labels_train'], biased_classes_mapped, B=arg['train_batchsize'], train=True, removeclabels=removeclabels, removecimages=removecimages, splitbiased=splitbiased)
+valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped, B=arg['test_batchsize'], train=False, splitbiased=splitbiased)
 
 # Initialize classifier
 classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'], modelpath=arg['modelpath'], hidden_size=arg['hs'], learning_rate=arg['lr'])
@@ -78,7 +77,7 @@ for i in range(classifier.epoch, arg['nepoch']+1):
     if i == 30 and arg['dataset'] == 'DeepFashion':
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9, weight_decay=arg['wd'])
 
-    if arg['model'] in ['baseline', 'removeclabels', 'removecimages']:
+    if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased']:
         train_loss_list = classifier.train(trainset)
     if arg['model'] == 'negativepenalty':
         train_loss_list = classifier.train_negativepenalty(trainset, biased_classes_mapped, penalty=10)
@@ -123,7 +122,7 @@ for i in range(classifier.epoch, arg['nepoch']+1):
 
         # Categorize the images into co-occur/exclusive/other
         if splitbiased:
-            cooccur = (labels_list[:,arg['nclasses']+k]==1)
+            cooccur = (labels_list[:,arg['nclasses']+k-20]==1)
             exclusive = (labels_list[:,b]==1)
         else:
             cooccur = (labels_list[:,b]==1) & (labels_list[:,c]==1)
@@ -132,8 +131,8 @@ for i in range(classifier.epoch, arg['nepoch']+1):
 
         # Calculate AP for co-occur/exclusive sets
         if splitbiased:
-            cooccur_AP = average_precision_score(labels_list[cooccur+other, arg['nclasses']+k],
-                scores_list[cooccur+other, arg['nclasses']+k])
+            cooccur_AP = average_precision_score(labels_list[cooccur+other, arg['nclasses']+k-20],
+                scores_list[cooccur+other, arg['nclasses']+k-20])
         else:
             cooccur_AP = average_precision_score(labels_list[cooccur+other, b],
                 scores_list[cooccur+other, b])

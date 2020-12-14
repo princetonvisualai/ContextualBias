@@ -56,21 +56,21 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
     if splitbiased:
         biased_classes_list = sorted(list(biased_classes_mapped.keys()))
         for i, img_path in enumerate(img_labels):
+            addlabel = torch.zeros((20))
             for k in range(len(biased_classes_list)):
                 b = biased_classes_list[k]
                 c = biased_classes_mapped[b]
                 label = img_labels[img_path]
 
-                # If b and c co-occur, make b label 0 and 171+b label 1
+                # If b and c co-occur, make b label 0 and N+b label 1
                 # so as to separate exclusive and co-occur labels
-                addlabel = torch.zeros((20))
                 if (label[b]==1) and (label[c]==1):
                     label[b] = 0
                     addlabel[k] = 1
 
-                # Replace the 171-D label with new 191-D label
-                newlabel = torch.cat((label, addlabel))
-                img_labels[img_path] = newlabel
+            # Replace the N-D label with new (N+20)-D label
+            newlabel = torch.cat((label, addlabel))
+            img_labels[img_path] = newlabel
 
     # Common from here
     normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
