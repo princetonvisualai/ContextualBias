@@ -30,7 +30,7 @@ humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_on
 onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
 # Create dataloader
-valset = create_dataset(arg['dataset'], arg['labels'], biased_classes_mapped, B=arg['batchsize'], train=False)
+valset = create_dataset(arg['dataset'], arg['labels'], biased_classes_mapped, B=arg['batchsize'], train=False, splitbiased=arg['splitbiased'])
 
 # Load model
 classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'], hidden_size=arg['hs'])
@@ -72,7 +72,7 @@ for k in range(len(biased_classes_list)):
     else:
         cooccur_AP = average_precision_score(labels_list[cooccur+other, b],
             scores_list[cooccur+other, b])
-    exclusive_AP = average_precision_score(labels_list[exclusive+other ,b],
+    exclusive_AP = average_precision_score(labels_list[exclusive+other, b],
         scores_list[exclusive+other, b])
 
     # Record and print
