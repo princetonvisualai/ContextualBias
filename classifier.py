@@ -11,13 +11,14 @@ class multilabel_classifier():
 
     def __init__(self, device, dtype, nclasses=171, modelpath=None, hidden_size=2048, learning_rate=0.1, weight_decay=1e-4):
         self.nclasses = nclasses
-        self.model = ResNet50(n_classes=nclasses, hidden_size=hidden_size, pretrained=True)
-        self.model.require_all_grads()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=weight_decay)
         self.device = device
         self.dtype = dtype
+        self.model = ResNet50(n_classes=nclasses, hidden_size=hidden_size, pretrained=True)
+        self.model = self.model.to(device=self.device, dtype=self.dtype)
+        self.model.require_all_grads()
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=weight_decay)
         self.epoch = 0
-        self.print_freq = 5
+        self.print_freq = 10
         if modelpath != None:
             A = torch.load(modelpath, map_location=device)
             self.model.load_state_dict(A['model'])
@@ -30,8 +31,33 @@ class multilabel_classifier():
     def save_model(self, path):
         torch.save({'model':self.model.state_dict(), 'optim':self.optimizer, 'epoch':self.epoch}, path)
 
+    def train(self, loader):
+        """Train the 'standard baseline' model for one epoch"""
+
+        self.model = self.model.to(device=self.device, dtype=self.dtype)
+        self.model.train()
+
+        loss_list = []
+        for i, (images, labels, ids) in enumerate(loader):
+            images = images.to(device=self.device, dtype=self.dtype)
+            labels = labels.to(device=self.device, dtype=self.dtype)
+
+            self.optimizer.zero_grad()
+            outputs, _ = self.forward(images)
+            criterion = torch.nn.BCEWithLogitsLoss()
+            loss = criterion(outputs.squeeze(), labels)
+            loss.backward()
+            self.optimizer.step()
+
+            loss_list.append(loss.item())
+            if self.print_freq and (i % self.print_freq == 0):
+                print('Training epoch {} [{}|{}] loss: {}'.format(self.epoch, i+1, len(loader), loss.item()), flush=True)
+
+        self.epoch += 1
+        return loss_list
+
     def test(self, loader):
-        """Evaluate with the model"""
+        """Evaluate the 'standard baseline' model"""
 
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.model.eval()
@@ -64,31 +90,6 @@ class multilabel_classifier():
                 scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
 
         return labels_list, scores_list, loss_list
-
-    def train(self, loader):
-        """Train the 'standard baseline' model for one epoch"""
-
-        self.model = self.model.to(device=self.device, dtype=self.dtype)
-        self.model.train()
-
-        loss_list = []
-        for i, (images, labels, ids) in enumerate(loader):
-            images = images.to(device=self.device, dtype=self.dtype)
-            labels = labels.to(device=self.device, dtype=self.dtype)
-
-            self.optimizer.zero_grad()
-            outputs, _ = self.forward(images)
-            criterion = torch.nn.BCEWithLogitsLoss()
-            loss = criterion(outputs.squeeze(), labels)
-            loss.backward()
-            self.optimizer.step()
-
-            loss_list.append(loss.item())
-            if self.print_freq and (i % self.print_freq == 0):
-                print('Training epoch {} [{}|{}] loss: {}'.format(self.epoch, i+1, len(loader), loss.item()), flush=True)
-
-        self.epoch += 1
-        return loss_list
 
     def train_negativepenalty(self, loader, biased_classes_mapped, penalty=10):
         """Train the 'strong baseline - negative penalty' model for one epoch"""
@@ -125,8 +126,46 @@ class multilabel_classifier():
         self.epoch += 1
         return loss_list
 
+    def test_negativepenalty(self, loader, biased_classes_mapped, penalty=10):
+        """Evaluate the 'strong baseline - negative penalty' model"""
+
+        self.model = self.model.to(device=self.device, dtype=self.dtype)
+        self.model.eval()
+
+        with torch.no_grad():
+
+            labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            ids_list = []
+            loss_list = []
+
+            for i, (images, labels, ids) in enumerate(loader):
+                images = images.to(device=self.device, dtype=self.dtype)
+                labels = labels.to(device=self.device, dtype=self.dtype)
+
+                outputs, _ = self.forward(images)
+                criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
+                loss_tensor = criterion(outputs.squeeze(), labels)
+
+                # Create a loss weight tensor with a large negative penalty for c
+                weight_tensor = torch.ones_like(outputs)
+                for b in biased_classes_mapped.keys():
+                    c = biased_classes_mapped[b]
+                    exclusive = (labels[:,b]==1) & (labels[:,c]==0)
+                    weight_tensor[exclusive, c] = penalty
+
+                # Calculate and make updates with the weighted loss
+                loss = (weight_tensor * loss_tensor).mean()
+                loss_list.append(loss.item())
+                scores = torch.sigmoid(outputs).squeeze()
+
+                labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
+                scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
+
+        return labels_list, scores_list, loss_list
+
     def train_classbalancing(self, loader, biased_classes_mapped, beta=0.99):
-        """Train the 'strong baseline - negative penalty' model for one epoch"""
+        """Train the 'strong baseline - class-balancing' model for one epoch"""
 
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.model.train()
@@ -187,6 +226,70 @@ class multilabel_classifier():
         self.epoch += 1
         return loss_list
 
+    def test_classbalancing(self, loader, biased_classes_mapped, beta=0.99):
+        """Evaluate the 'strong baseline - class-balancing' model"""
+
+        self.model = self.model.to(device=self.device, dtype=self.dtype)
+        self.model.eval()
+
+        with torch.no_grad():
+
+            labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            ids_list = []
+            loss_list = []
+
+            for i, (images, labels, ids) in enumerate(loader):
+                images = images.to(device=self.device, dtype=self.dtype)
+                labels = labels.to(device=self.device, dtype=self.dtype)
+
+                outputs, _ = self.forward(images)
+                criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
+                loss_tensor = criterion(outputs.squeeze(), labels)
+
+                # Create a loss weight tensor with class balancing weights
+                weight_tensor = torch.ones_like(outputs)
+                for b in biased_classes_mapped.keys():
+                    c = biased_classes_mapped[b]
+                    cooccur = (labels[:,b]==1) & (labels[:,c]==1)
+                    exclusive = (labels[:,b]==1) & (labels[:,c]==0)
+                    other = (~exclusive) & (~cooccur)
+
+                    # Calculate weight (1-beta)/(1-beta^n) for each group
+                    cooccur_weight = (1-beta)/(1-torch.pow(beta, cooccur.sum()))
+                    exclusive_weight = (1-beta)/(1-torch.pow(beta, exclusive.sum()))
+                    other_weight = (1-beta)/(1-torch.pow(beta, other.sum()))
+
+                    # Have the smallest weight be 1 and the rest proportional to it
+                    # so as to balance it with other categories that have weight 1
+                    # instead of having the three weights sum to 1
+                    sum_weight = torch.min(torch.stack([exclusive_weight, cooccur_weight, other_weight]))
+
+                    # Appropriately normalize the weights
+                    exclusive_weight /= sum_weight
+                    cooccur_weight /= sum_weight
+                    other_weight /= sum_weight
+
+                    # Replace inf with 1
+                    if cooccur.sum() == 0: cooccur_weight = cooccur.sum() + 1.
+                    if exclusive.sum() == 0: exclusive_weight = exclusive.sum() + 1.
+                    if other.sum() == 0: other_weight = other.sum() + 1.
+
+                    # Assign the weights
+                    weight_tensor[exclusive, b] = exclusive_weight
+                    weight_tensor[cooccur, b] = cooccur_weight
+                    weight_tensor[other, b] = other_weight
+
+                # Calculate and make updates with the weighted loss
+                loss = (weight_tensor * loss_tensor).mean()
+                loss_list.append(loss.item())
+                scores = torch.sigmoid(outputs).squeeze()
+
+                labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
+                scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
+
+        return labels_list, scores_list, loss_list
+
     def train_weighted(self, loader, biased_classes_mapped, weight=10):
         """Train the 'strong baseline - weighted loss' model for one epoch"""
 
@@ -221,6 +324,44 @@ class multilabel_classifier():
 
         self.epoch += 1
         return loss_list
+
+    def test_weighted(self, loader, biased_classes_mapped, weight=10):
+        """Evaluate the 'strong baseline - weighted loss' model"""
+
+        self.model = self.model.to(device=self.device, dtype=self.dtype)
+        self.model.eval()
+
+        with torch.no_grad():
+
+            labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            ids_list = []
+            loss_list = []
+
+            for i, (images, labels, ids) in enumerate(loader):
+                images = images.to(device=self.device, dtype=self.dtype)
+                labels = labels.to(device=self.device, dtype=self.dtype)
+
+                outputs, _ = self.forward(images)
+                criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
+                loss_tensor = criterion(outputs.squeeze(), labels)
+
+                # Create a loss weight tensor with a large negative penalty for b
+                weight_tensor = torch.ones_like(outputs)
+                for b in biased_classes_mapped.keys():
+                    c = biased_classes_mapped[b]
+                    exclusive = (labels[:,b]==1) & (labels[:,c]==0)
+                    weight_tensor[exclusive, b] = weight
+
+                # Calculate and make updates with the weighted loss
+                loss = (weight_tensor * loss_tensor).mean()
+                loss_list.append(loss.item())
+                scores = torch.sigmoid(outputs).squeeze()
+
+                labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
+                scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
+
+        return labels_list, scores_list, loss_list
 
     def train_CAM(self, loader, pretrained_net, biased_classes_mapped):
         """Train the 'CAM-based' model for one epoch"""
