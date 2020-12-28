@@ -54,22 +54,22 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
 
     # Strong baseline - split biased category into exclusive and co-occuring
     if splitbiased:
+        nclasses = len(list(img_labels.values())[0])
         biased_classes_list = sorted(list(biased_classes_mapped.keys()))
         for i, img_path in enumerate(img_labels):
-            addlabel = torch.zeros((20))
+            label = img_labels[img_path]
+            newlabel = torch.cat((label, torch.zeros(20)))
             for k in range(len(biased_classes_list)):
                 b = biased_classes_list[k]
                 c = biased_classes_mapped[b]
-                label = img_labels[img_path]
 
-                # If b and c co-occur, make b label 0 and N+b label 1
+                # If b and c co-occur, make b label 0 and N+k label 1
                 # so as to separate exclusive and co-occur labels
                 if (label[b]==1) and (label[c]==1):
-                    label[b] = 0
-                    addlabel[k] = 1
+                    newlabel[b] = 0
+                    newlabel[nclasses + k] = 1
 
             # Replace the N-D label with new (N+20)-D label
-            newlabel = torch.cat((label, addlabel))
             img_labels[img_path] = newlabel
 
     # Common from here
