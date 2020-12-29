@@ -2,6 +2,9 @@ import pickle, glob, collections, time, argparse
 import torch
 import numpy as np
 
+from classifier import multilabel_classifier
+from load_data import *
+
 # Return bias value, given categories b, z, lists of images with these categories
 # (imgs_b, imgs_z), a list of images where b and z co-occur (co-ooccur), and a
 # dictionary of prediction probabilities of the images (scores_val)
@@ -18,8 +21,11 @@ def bias(b, z, imgs_b, imgs_z, co_occur, scores_dict):
         p_with += scores_dict[i][b]
     for i in b_without_z_imgs:
         p_without += scores_dict[i][b]
-
-    bias_val = (p_with/num_b_with_z_imgs)/(p_without/num_b_without_z_imgs)
+    
+    if num_b_without_z_imgs < 1:
+        bias_val = (p_with/num_b_with_z_imgs)
+    else:
+        bias_val = (p_with/num_b_with_z_imgs)/(p_without/num_b_without_z_imgs)
     return bias_val
 
 def get_pair_bias(b, z, scores_val, label_to_img, cooccur_thresh):
@@ -44,57 +50,76 @@ def main():
     parser.add_argument('--batchsize', type=int, default=200)
     parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--cooccur', type=float, default=0.1)
+    parser.add_argument('--precomputed', type=bool, default=False)
     parser.add_argument('--device', default=torch.device('cuda'))
     parser.add_argument('--dtype', default=torch.float32)
     arg = vars(parser.parse_args())
     print('\n', arg, '\n')
 
     # Load files
-    labels = pickle.load(open(arg['labels'], 'rb'))
+    labels_dict = pickle.load(open(arg['labels'], 'rb'))
     humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
     onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
-    # Get scores for the bias split data
-    valset = create_dataset(arg['dataset']f, arg['labels'], None, B=arg['batchsize'], train=False)
-    Classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'])
-    Classifier.model.eval()
-    scores_dict = {}
-    with torch.no_grad():
-        for i, (images, labels, ids) in enumerate(valset):
-            images = images.to(device=Classifier.device, dtype=Classifier.dtype),
-            labels = labels.to(device=Classifier.device, dtype=Classifier.dtype)
-            scores, _ = Classifier.forward(images)
-            scores = torch.sigmoid(scores).squeeze().data.cpu().numpy()
-            for j in range(images.shape[0]):
-                id = ids[j]
-                scores_dict[id] = scores[j]
+    if arg['precomputed']:
+        scores_dict = pickle.load(open('{}/scores_dict.pkl'.format(arg['dataset']), 'rb'))
+    else:
+        # Get scores for the bias split data
+        valset = create_dataset(arg['dataset'], arg['labels'], None, B=arg['batchsize'], train=False)
+        classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'], modelpath=arg['modelpath'])
+        classifier.model = classifier.model.to(device=classifier.device, dtype=classifier.dtype)
+        classifier.model.eval()
+        scores_dict = {}
+        with torch.no_grad():
+            for i, (images, labels, ids) in enumerate(valset):
+                images = images.to(device=classifier.device, dtype=classifier.dtype)
+                labels = labels.to(device=classifier.device, dtype=classifier.dtype)
+                bs, ncrops, c, h, w = images.size()
+
+                outputs, _ = classifier.forward(images.view(-1, c, h, w))
+                outputs_avg = outputs.view(bs, ncrops, -1).mean(1)
+                scores = torch.sigmoid(outputs_avg).squeeze().data.cpu().numpy()
+                for j in range(images.shape[0]):
+                    id = ids[j]
+                    scores_dict[id] = scores[j]
+        
+        with open('{}/scores_dict.pkl'.format(arg['dataset']), 'wb+') as handle:
+            pickle.dump(scores_dict, handle)
 
     # Construct a dictionary where label_to_img[k] contains filenames of images that
     # contain label k. k is in [0-N].
     label_to_img = collections.defaultdict(list)
-    for img_name in labels.keys():
-        idx_list = list(np.nonzero(labels[img_name]))
-        for idx in idx_list:
-            label = int(idx[0])
+    for img_name in labels_dict:
+        idx_list = np.where(labels_dict[img_name]>0)[0]
+        for label in idx_list:
             label_to_img[label].append(img_name)
+    with open('{}/label_to_img.pkl'.format(arg['dataset']), 'wb+') as handle:
+        pickle.dump(label_to_img, handle)
     
     # Compute biases for 20 categories in paper
     original_biased_pairs = pickle.load(open('{}/biased_classes.pkl'.format(arg['dataset']), 'rb'))
 
     if True:
+        print('Original biased pairs')
+        print('\n{:>11} {:>11} {:>6}'.format('b', 'c', 'bias'), flush=True)
         for pair in original_biased_pairs.items():
             b = humanlabels_to_onehot[pair[0]]
             z = humanlabels_to_onehot[pair[1]]
-            pair_bias = get_pair_bias(b, z, scores_val, label_to_img, CO_OCCUR_PERCENT)
-            print('({}, {}): {}'.format(pair[0], pair[1], pair_bias))
+            pair_bias = get_pair_bias(b, z, scores_dict, label_to_img, arg['cooccur'])
+            print('{:>11} {:>11} {:6.2f}'.format(pair[0], pair[1], pair_bias))
 
     # Compute top biased pair for each category and record top 20 most biased category pairs
-    if False:
+    if True:
+        print('\nBiased category analysis')
+        print('\n{:>16} {:>16} {:>6} {:>10} {:>10} {:>10}'.format('b', 'c', 'bias', 'co-occur', 'exclusive', 'co-freq'), flush=True)
         # Calculate bias and get the most biased category for b
         biased_pairs = np.zeros((arg['nclasses'], 3)) # 2d array with columns b, c, bias
         for b in range(arg['nclasses']):
 
             imgs_b = set(label_to_img[b]) # List of images containing b
+            if len(imgs_b) == 0:
+                print('{:>11}({:>3}) {:>11}({:>3}) {:>6} {:>10} {:>10} {:>10}'.format(onehot_to_humanlabels[b], b, 'N/A', ' ', '---', 0, len(imgs_b), 0), flush=True)
+                continue
 
             # Calculate bias values for categories that co-occur with b more than 10% of the times
             biases_b = np.zeros(arg['nclasses']) # Array containing bias value of (b, z)
@@ -111,9 +136,11 @@ def main():
             if np.sum(biases_b) != 0:
                 c = np.argmax(biases_b)
                 biased_pairs[b] = [b, c, biases_b[c]]
+                imgs_c = set(label_to_img[c])
+                co_occur = imgs_b.intersection(imgs_c)
 
-            c_human = list(humanlabels_to_onehot.keys())[list(humanlabels_to_onehot.values()).index(c)]
-            print('\nb {}({}), c {}({}), bias {}, co-occur {}, exclusive {}, total {}'.format(onehot_to_humanlabels[b], b, onehot_to_humanlabels[c], c, biases_b[c], len(co_occur), len(imgs_b)-len(co_occur), len(labels)))
+                c_human = list(humanlabels_to_onehot.keys())[list(humanlabels_to_onehot.values()).index(c)]
+                print('{:>11}({:>3}) {:>11}({:>3}) {:>6.2f} {:>10} {:>10} {:>10.2f}'.format(onehot_to_humanlabels[b], b, onehot_to_humanlabels[c], c, biases_b[c], len(co_occur), len(imgs_b)-len(co_occur), len(co_occur)/len(imgs_b)), flush=True)
 
         # Get top 20 biased categories
         top_20_idx = np.argsort(biased_pairs[:,2])[-20:]
@@ -122,8 +149,10 @@ def main():
             top_20.append([onehot_to_humanlabels[int(biased_pairs[i,0])], onehot_to_humanlabels[int(biased_pairs[i,1])], biased_pairs[i,2]])
 
         result = {'top_20': top_20, 'biased_pairs': biased_pairs}
-        print('\nTop 20 biased categories')
-        print(result)
+        print('\nTop 20 biased categories', flush=True)
+        print('\n{:>11} {:>11} {:>6}'.format('b', 'c', 'bias'), flush=True)
+        for pair in result['top_20']:
+            print('{:>11} {:>11} {:6.2f}'.format(pair[0], pair[1], pair[2]), flush=True)
         
 if __name__ == '__main__':
     main()
