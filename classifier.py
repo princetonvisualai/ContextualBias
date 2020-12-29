@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+
 import torch
 import torchvision
 import torchvision.transforms as T
@@ -11,6 +12,7 @@ class multilabel_classifier():
 
     def __init__(self, device, dtype, nclasses=171, modelpath=None, hidden_size=2048, learning_rate=0.1, weight_decay=1e-4):
         self.nclasses = nclasses
+        self.hidden_size = hidden_size
         self.model = ResNet50(n_classes=nclasses, hidden_size=hidden_size, pretrained=True)
         self.model.require_all_grads()
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=weight_decay)
@@ -216,6 +218,41 @@ class multilabel_classifier():
 
         self.epoch += 1
         return loss_list
+
+    def train_attribute_decorrelation(self, loader, pretrained_net, biased_classes_mapped, humanlabels_to_onehot):
+        # Define semantic groups according to http://vision.cs.utexas.edu/projects/resistshare/
+        semantic_attributes = [
+            ['patches', 'spots', 'stripes', 'furry', 'hairless', 'toughskin'],
+            ['fierce', 'timid', 'smart', 'group', 'solitary', 'nestspot', 'domestic'],
+            ['black', 'white', 'blue', 'brown', 'gray', 'orange', 'red', 'yellow'],
+            ['flippers', 'hands', 'hooves', 'pads', 'paws', 'longleg', 'longneck', 'tail', 
+             'chewteeth', 'meatteeth', 'buckteeth', 'strainteeth', 'horns', 'claws',
+             'tusks', 'bipedal', 'quadrapedal'],
+            ['flys', 'hops', 'swims', 'tunnels', 'walks', 'fast', 'slow', 'strong', 
+             'weak', 'muscle'],
+            ['fish', 'meat', 'plankton', 'vegetation', 'insects', 'forager', 'grazer', 
+             'hunter', 'scavenger', 'skimmer', 'stalker'],
+            ['coastal', 'desert', 'bush', 'plains', 'forest', 'fields', 'jungle', 'mountains',
+             'ocean', 'ground', 'water', 'tree', 'cave'],
+            ['active', 'inactive', 'nocturnal', 'hibernate', 'agility'],
+            ['big', 'small', 'bulbous', 'lean']
+        ]
+        semantic_attributes_onehot = []
+        for group in semantic_attributes:
+            group_onehot = [humanlabels_to_onehot[attribute] for attribute in group]
+            semantic_attributes_onehot.append(group_onehot)
+        
+        pretrained_net.model = pretrained_net.model.to(device=self.device, dtype=self.dtype)
+        pretrained_net.model.eval()
+
+        model_W = torch.nn.Sequential(torch.nn.Linear(self.hidden_size, nclasses))
+        self.optimizer = torch.optim.SGD(model_W.parameters(), lr=0.01)
+
+        for i, (images, labels, ids) in enumerate(loader):
+            images = images.to(device=self.device, dtype=self.dtype)
+            labels = labels.to(device=self.device, dtype=self.dtype)
+            outputs, _ = pretrained_net.forward(images)
+ 
 
     def train_CAM(self, loader, pretrained_net, biased_classes_mapped):
         """Train the 'CAM-based' model for one epoch"""
