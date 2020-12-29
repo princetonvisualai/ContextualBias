@@ -16,6 +16,25 @@ source /n/fs/context-scr/context/bin/activate # for RTX3090
 #  --test_batchsize 150 --train_batchsize 200 \
 #  --save COCOStuff/save
 
+#python train.py --dataset COCOStuff --model baseline --batchsize 200 \
+#    --outdir save/coco/lr0.1_wd0.00001_b200 --lr 0.1 --wd 0.00001
+
+#python train.py --dataset COCOStuff --model baseline --batchsize 200 \
+#  --outdir save/coco/lr0.05_wd0.00001_b200 --lr 0.05 --wd 0.00001
+
+#python train.py --dataset COCOStuff --model baseline --batchsize 200 \
+#  --outdir save/coco/lr0.01_wd0.00001_b200 --lr 0.01 --wd 0.00001
+
+#python train.py --dataset COCOStuff --model baseline --batchsize 100 \
+#  --outdir save/coco/lr0.1_wd0.00001_b100 --lr 0.1 --wd 0.00001
+
+#python train.py --dataset COCOStuff --model baseline --batchsize 100 \
+#  --outdir save/coco/lr0.05_wd0.00001_b100 --lr 0.05 --wd 0.00001
+
+#python train.py --dataset COCOStuff --model baseline --batchsize 100 \
+#    --outdir save/coco/lr0.01_wd0.00001_b100 --lr 0.01 --wd 0.00001
+
+
 ### AwA
 python train.py --dataset AwA --model featuresplit --nepoch 20 --nclasses 85 \
   --lr 0.1 --wd 0.0001 \

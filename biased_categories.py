@@ -22,13 +22,14 @@ def bias(b, z, imgs_b, imgs_z, co_occur, scores_dict):
     for i in b_without_z_imgs:
         p_without += scores_dict[i][b]
     
-    if num_b_without_z_imgs < 1:
-        bias_val = (p_with/num_b_with_z_imgs)
+    if num_b_with_z_imgs > 0 and p_without > 0 and num_b_without_z_imgs > 0:
+        bias_val = (p_with/num_b_with_z_imgs) / (p_without/num_b_without_z_imgs)
     else:
-        bias_val = (p_with/num_b_with_z_imgs)/(p_without/num_b_without_z_imgs)
+	bias_val = 0
+
     return bias_val
 
-def get_pair_bias(b, z, scores_val, label_to_img, cooccur_thresh):
+def get_pair_bias(b, z, scores_dict, label_to_img, cooccur_thresh):
     if b == z:
         print('Same category, exiting')
         return 0.0
@@ -39,8 +40,9 @@ def get_pair_bias(b, z, scores_val, label_to_img, cooccur_thresh):
     imgs_z = set(label_to_img[z])
     co_occur = imgs_b.intersection(imgs_z)
     if len(co_occur)/len(imgs_b) < cooccur_thresh:
-        print('WARNING: Categories {} and {} co-occur infrequently'.format(b, z))
-    return bias(b, z, imgs_b, imgs_z, co_occur, scores_val)
+        print('WARNING: Categories {} and {} co-occur infrequently ({})'.format(b, z, len(co_occur)/len(imgs_b)))
+
+    return bias(b, z, imgs_b, imgs_z, co_occur, scores_dict)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -93,20 +95,19 @@ def main():
         idx_list = np.where(labels_dict[img_name]>0)[0]
         for label in idx_list:
             label_to_img[label].append(img_name)
-    with open('{}/label_to_img.pkl'.format(arg['dataset']), 'wb+') as handle:
-        pickle.dump(label_to_img, handle)
     
     # Compute biases for 20 categories in paper
-    original_biased_pairs = pickle.load(open('{}/biased_classes.pkl'.format(arg['dataset']), 'rb'))
-
+    original_biased_pairs = pickle.load(open('/n/fs/context-scr/{}/biased_classes.pkl'.format(arg['dataset']), 'rb'))
     if True:
         print('Original biased pairs')
         print('\n{:>11} {:>11} {:>6}'.format('b', 'c', 'bias'), flush=True)
         for pair in original_biased_pairs.items():
+
             b = humanlabels_to_onehot[pair[0]]
             z = humanlabels_to_onehot[pair[1]]
             pair_bias = get_pair_bias(b, z, scores_dict, label_to_img, arg['cooccur'])
             print('{:>11} {:>11} {:6.2f}'.format(pair[0], pair[1], pair_bias))
+
 
     # Compute top biased pair for each category and record top 20 most biased category pairs
     if True:
@@ -129,8 +130,10 @@ def main():
 
                 imgs_z = set(label_to_img[z])
                 co_occur = imgs_b.intersection(imgs_z)
-                if len(co_occur)/len(imgs_b) > arg['cooccur']:
-                    biases_b[z] = bias(b, z, imgs_b, imgs_z, co_occur, scores_dict)
+                if len(co_occur)/len(imgs_b) >= arg['cooccur']:
+                    bias_b_z = bias(b, z, imgs_b, imgs_z, co_occur, scores_dict)
+                    biases_b[z] = bias_b_z
+                    #print(b, z, len(co_occur)/len(imgs_b), bias_b_z)
 
             # Identify c that has the highest bias for b
             if np.sum(biases_b) != 0:
@@ -146,6 +149,7 @@ def main():
         top_20_idx = np.argsort(biased_pairs[:,2])[-20:]
         top_20 = []
         for i in top_20_idx:
+            print(onehot_to_humanlabels[int(biased_pairs[i,0])], onehot_to_humanlabels[int(biased_pairs[i,1])], biased_pairs[i,2])
             top_20.append([onehot_to_humanlabels[int(biased_pairs[i,0])], onehot_to_humanlabels[int(biased_pairs[i,1])], biased_pairs[i,2]])
 
         result = {'top_20': top_20, 'biased_pairs': biased_pairs}

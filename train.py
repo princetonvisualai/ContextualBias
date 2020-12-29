@@ -11,7 +11,7 @@ from load_data import *
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str)
 parser.add_argument('--model', type=str, default='baseline',
-    choices=['baseline', 'cam', 'featuresplit', 'splitbiased',
+    choices=['baseline', 'cam', 'featuresplit', 'splitbiased', 'weighted',
     'removeclabels', 'removecimages', 'negativepenalty', 'classbalancing'])
 parser.add_argument('--nepoch', type=int, default=100)
 parser.add_argument('--train_batchsize', type=int, default=200)
@@ -39,10 +39,12 @@ if not path.isdir(arg['outdir']):
     makedirs(arg['outdir'])
 
 # Load utility files
-biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+#biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+biased_classes_mapped = pickle.load(open('biased_classes_mapped.pkl', 'rb'))
 if arg['dataset'] == 'COCOStuff':
     unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/COCOStuff/unbiased_classes_mapped.pkl', 'rb'))
-humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
+#humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
+humanlabels_to_onehot = pickle.load(open('humanlabels_to_onehot.pkl', 'rb'))
 onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
 # Create data loaders
@@ -50,14 +52,13 @@ removeclabels = True if (arg['model'] == 'removeclabels') else False
 removecimages = True if (arg['model'] == 'removecimages') else False
 splitbiased = True if (arg['model'] == 'splitbiased') else False
 trainset = create_dataset(arg['dataset'], arg['labels_train'], biased_classes_mapped, B=arg['train_batchsize'], train=True, removeclabels=removeclabels, removecimages=removecimages, splitbiased=splitbiased)
-valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped, B=arg['test_batchsize'], train=False, splitbiased=splitbiased)
+testset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped, B=arg['test_batchsize'], train=False, splitbiased=splitbiased)
 
 # Initialize classifier
 classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'], modelpath=arg['modelpath'], hidden_size=arg['hs'], learning_rate=arg['lr'])
 if arg['model'] == 'cam':
     pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=0.9, weight_decay=arg['wd'])
-print(classifier.optimizer)
 
 # Calculate loss weights for the feature-splitting method
 if arg['model'] == 'featuresplit':
@@ -68,13 +69,14 @@ if arg['model'] == 'featuresplit':
 tb = SummaryWriter(log_dir='{}/runs'.format(arg['outdir']))
 start_time = time.time()
 print('\nStarted training at {}\n'.format(start_time))
-for i in range(classifier.epoch, arg['nepoch']+1):
+for i in range(classifier.epoch, classifier.epoch+arg['nepoch']+1):
 
-    if i == 60 and arg['dataset'] == 'COCOStuff': # Reduce learning rate from 0.1 to 0.01
+    # Reduce learning rate from 0.1 to 0.01
+    if i == 20 and arg['dataset'] == 'COCOStuff': # Paper: decay at epoch 60
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9, weight_decay=arg['wd'])
     if i == 10 and arg['dataset'] == 'AwA':
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.001, momentum=0.9, weight_decay=arg['wd'])
-    if i == 30 and arg['dataset'] == 'DeepFashion':
+    if i == 20 and arg['dataset'] == 'DeepFashion': # Paper: decay at epoch 30
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9, weight_decay=arg['wd'])
 
     if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased']:
@@ -96,11 +98,18 @@ for i in range(classifier.epoch, arg['nepoch']+1):
     classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], i))
 
     # Do inference with the model
-    labels_list, scores_list, val_loss_list = classifier.test(valset)
+    if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased']:
+        labels_list, scores_list, test_loss_list = classifier.test(testset)
+    if arg['model'] == 'negativepenalty':
+        labels_list, scores_list, test_loss_list = classifier.test_negativepenalty(testset, biased_classes_mapped, penalty=10)
+    if arg['model'] == 'classbalancing':
+        labels_list, scores_list, test_loss_list = classifier.test_classbalancing(testset, biased_classes_mapped, beta=0.99)
+    if arg['model'] == 'weighted':
+        labels_list, scores_list, test_loss_list = classifier.test_weighted(testset, biased_classes_mapped, weight=10)
 
     # Record train/val loss
     tb.add_scalar('Loss/Train', np.mean(train_loss_list), i)
-    tb.add_scalar('Loss/Val-BCE', np.mean(val_loss_list), i)
+    tb.add_scalar('Loss/Test', np.mean(test_loss_list), i)
 
     # Calculate and record mAP
     APs = []
@@ -145,12 +154,18 @@ for i in range(classifier.epoch, arg['nepoch']+1):
         tb.add_scalar('{}/co-occur'.format(onehot_to_humanlabels[b]), cooccur_AP_dict[b]*100, i)
         tb.add_scalar('{}/exclusive'.format(onehot_to_humanlabels[b]), exclusive_AP_dict[b]*100, i)
 
+    # Record mean co-occur/exclusive AP
+    tb.add_scalar('mAP/co-occur', np.mean(list(cooccur_AP_dict.values()))*100, i)
+    tb.add_scalar('mAP/exclusive', np.mean(list(exclusive_AP_dict.values()))*100, i)
+
     # Print out information
-    print('\nLoss: train {:.5f}, val {:.5f}'.format(np.mean(train_loss_list), np.mean(val_loss_list)))
+    print('\nEpoch: {}'.format(i))
+    print('Loss: train {:.5f}, val {:.5f}'.format(np.mean(train_loss_list), np.mean(test_loss_list)))
     if arg['dataset'] == 'COCOStuff':
-        print('Validation mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(arg['nclasses'], mAP*100, mAP_unbiased*100))
+        print('Test mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(arg['nclasses'], mAP*100, mAP_unbiased*100))
     else:
-        print('Validation mAP: all {} {:.5f}'.format(arg['nclasses'], mAP*100))
+        print('Test mAP: all {} {:.5f}'.format(arg['nclasses'], mAP*100))
+    print('Test mAP: co-occur {:.5f}, exclusive {:.5f}'.format(np.mean(list(cooccur_AP_dict.values()))*100, np.mean(list(exclusive_AP_dict.values()))*100))
     print('Time passed so far: {:.2f} minutes\n'.format((time.time()-start_time)/60.))
 
 # Close tensorboard logger
