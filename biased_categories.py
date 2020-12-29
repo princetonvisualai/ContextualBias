@@ -21,7 +21,7 @@ def bias(b, z, imgs_b, imgs_z, co_occur, scores_dict):
         p_with += scores_dict[i][b]
     for i in b_without_z_imgs:
         p_without += scores_dict[i][b]
-    if num_b_with_z_imgs>0 or p_without>0 or num_b_without_z_imgs >0:
+    if num_b_with_z_imgs>0 and p_without>0 and num_b_without_z_imgs >0:
         bias_val = (p_with/num_b_with_z_imgs)/(p_without/num_b_without_z_imgs)
     else:
 	    bias_val=0
