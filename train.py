@@ -101,7 +101,7 @@ for i in range(classifier.epoch, classifier.epoch+arg['nepoch']+1):
     classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], i))
 
     # Do inference with the model
-    if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased', 'featuresplit']:
+    if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit']:
         labels_list, scores_list, test_loss_list = classifier.test(testset)
     if arg['model'] == 'negativepenalty':
         labels_list, scores_list, test_loss_list = classifier.test_negativepenalty(testset, biased_classes_mapped, penalty=10)
@@ -109,8 +109,6 @@ for i in range(classifier.epoch, classifier.epoch+arg['nepoch']+1):
         labels_list, scores_list, test_loss_list = classifier.test_classbalancing(testset, biased_classes_mapped, weight)
     if arg['model'] == 'weighted':
         labels_list, scores_list, test_loss_list = classifier.test_weighted(testset, biased_classes_mapped, weight=10)
-    if arg['model'] == 'cam':
-        labels_list, scores_list, test_loss_list = classifier.test_cam(testset, pretrained_net, biased_classes_mapped)
 
     # Record train/val loss
     tb.add_scalar('Loss/Train', np.mean(train_loss_list), i)
