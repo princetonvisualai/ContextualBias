@@ -17,6 +17,7 @@ parser.add_argument('--nepoch', type=int, default=100)
 parser.add_argument('--train_batchsize', type=int, default=200)
 parser.add_argument('--test_batchsize', type=int, default=170)
 parser.add_argument('--lr', type=float, default=0.1)
+parser.add_argument('--drop', type=int, default=60)
 parser.add_argument('--wd', type=float, default=0.0)
 parser.add_argument('--hs', type=int, default=2048)
 parser.add_argument('--nclasses', type=int, default=171)
@@ -24,7 +25,7 @@ parser.add_argument('--modelpath', type=str, default=None)
 parser.add_argument('--pretrainedpath', type=str)
 parser.add_argument('--outdir', type=str, default='/n/fs/context-scr/COCOStuff/save')
 parser.add_argument('--labels_train', type=str, default='/n/fs/context-scr/COCOStuff/labels_train.pkl')
-parser.add_argument('--labels_val', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
+parser.add_argument('--labels_test', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
 parser.add_argument('--device', default=torch.device('cuda'))
 parser.add_argument('--dtype', default=torch.float32)
 
@@ -39,12 +40,10 @@ if not path.isdir(arg['outdir']):
     makedirs(arg['outdir'])
 
 # Load utility files
-#biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
-biased_classes_mapped = pickle.load(open('biased_classes_mapped.pkl', 'rb'))
+biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
 if arg['dataset'] == 'COCOStuff':
     unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/COCOStuff/unbiased_classes_mapped.pkl', 'rb'))
-#humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
-humanlabels_to_onehot = pickle.load(open('humanlabels_to_onehot.pkl', 'rb'))
+humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
 onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
 # Create data loaders
@@ -52,17 +51,22 @@ removeclabels = True if (arg['model'] == 'removeclabels') else False
 removecimages = True if (arg['model'] == 'removecimages') else False
 splitbiased = True if (arg['model'] == 'splitbiased') else False
 trainset = create_dataset(arg['dataset'], arg['labels_train'], biased_classes_mapped, B=arg['train_batchsize'], train=True, removeclabels=removeclabels, removecimages=removecimages, splitbiased=splitbiased)
-testset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped, B=arg['test_batchsize'], train=False, splitbiased=splitbiased)
+testset = create_dataset(arg['dataset'], arg['labels_test'], biased_classes_mapped, B=arg['test_batchsize'], train=False, splitbiased=splitbiased)
 
 # Initialize classifier
 classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'], modelpath=arg['modelpath'], hidden_size=arg['hs'], learning_rate=arg['lr'])
+if arg['model'] in ['cam', 'featuresplit']:
+    classifier.epoch = 0 # Reset epoch for stage 2 training
 if arg['model'] == 'cam':
     pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=0.9, weight_decay=arg['wd'])
 
-# Calculate loss weights for the feature-splitting method
+# Calculate loss weights for the class-balancing and feature-splitting methods
+if arg['model'] == 'classbalancing':
+    weight = calculate_classbalancing_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped, beta=0.99)
+    weight = weight.to(arg['device'])
 if arg['model'] == 'featuresplit':
-    weight = calculate_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped, humanlabels_to_onehot)
+    weight = calculate_featuresplit_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped)
     weight = weight.to(arg['device'])
 
 # Start training
@@ -72,11 +76,11 @@ print('\nStarted training at {}\n'.format(start_time))
 for i in range(classifier.epoch, classifier.epoch+arg['nepoch']+1):
 
     # Reduce learning rate from 0.1 to 0.01
-    if i == 20 and arg['dataset'] == 'COCOStuff': # Paper: decay at epoch 60
+    if i == arg['drop'] and arg['dataset'] == 'COCOStuff':
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9, weight_decay=arg['wd'])
-    if i == 10 and arg['dataset'] == 'AwA':
+    if i == arg['drop'] and arg['dataset'] == 'AwA':
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.001, momentum=0.9, weight_decay=arg['wd'])
-    if i == 20 and arg['dataset'] == 'DeepFashion': # Paper: decay at epoch 30
+    if i == arg['drop'] and arg['dataset'] == 'DeepFashion':
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, momentum=0.9, weight_decay=arg['wd'])
 
     if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased']:
@@ -84,26 +88,25 @@ for i in range(classifier.epoch, classifier.epoch+arg['nepoch']+1):
     if arg['model'] == 'negativepenalty':
         train_loss_list = classifier.train_negativepenalty(trainset, biased_classes_mapped, penalty=10)
     if arg['model'] == 'classbalancing':
-        train_loss_list = classifier.train_classbalancing(trainset, biased_classes_mapped, beta=0.99)
+        train_loss_list = classifier.train_classbalancing(trainset, biased_classes_mapped, weight)
     if arg['model'] == 'weighted':
         train_loss_list = classifier.train_weighted(trainset, biased_classes_mapped, weight=10)
     if arg['model'] == 'cam':
-        train_loss_list = classifier.train_CAM(trainset, pretrained_net, biased_classes_mapped)
+        train_loss_list = classifier.train_cam(trainset, pretrained_net, biased_classes_mapped)
     if arg['model'] == 'featuresplit':
-        if i == 0:
-            xs_prev_ten = []
+        if i == 0: xs_prev_ten = []
         train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten)
 
     # Save the model
     classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], i))
 
     # Do inference with the model
-    if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased']:
+    if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit']:
         labels_list, scores_list, test_loss_list = classifier.test(testset)
     if arg['model'] == 'negativepenalty':
         labels_list, scores_list, test_loss_list = classifier.test_negativepenalty(testset, biased_classes_mapped, penalty=10)
     if arg['model'] == 'classbalancing':
-        labels_list, scores_list, test_loss_list = classifier.test_classbalancing(testset, biased_classes_mapped, beta=0.99)
+        labels_list, scores_list, test_loss_list = classifier.test_classbalancing(testset, biased_classes_mapped, weight)
     if arg['model'] == 'weighted':
         labels_list, scores_list, test_loss_list = classifier.test_weighted(testset, biased_classes_mapped, weight=10)
 

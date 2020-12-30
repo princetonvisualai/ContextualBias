@@ -117,20 +117,60 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
     return loader
 
 # Calculate weights used in the feature-splitting method
-def calculate_weight(labels_path, nclasses, biased_classes_mapped, humanlabels_to_onehot):
+def calculate_featuresplit_weight(labels_path, nclasses, biased_classes_mapped):
 
     labels = pickle.load(open(labels_path, 'rb'))
 
     w = torch.ones(nclasses)
     for b in biased_classes_mapped.keys():
+        c = biased_classes_mapped[b]
         exclusive = 0; cooccur = 0
         for key in labels.keys():
-            if labels[key][b]==1 and labels[key][biased_classes_mapped[b]]==1:
+            if labels[key][b]==1 and labels[key][c]==1:
                 cooccur += 1
-            elif labels[key][b]==1 and labels[key][biased_classes_mapped[b]]==0:
+            elif labels[key][b]==1 and labels[key][c]==0:
                 exclusive += 1
         alpha = np.sqrt(cooccur/exclusive)
         if alpha > 1:
             w[b] = alpha
+
+    return w
+
+# Calculate weights used in the class-balancing method
+def calculate_classbalancing_weight(labels_path, nclasses, biased_classes_mapped, beta=0.99):
+
+    labels = pickle.load(open(labels_path, 'rb'))
+
+    w = torch.ones(nclasses, 3) # columns: exclusive, cooccur, other
+    for b in biased_classes_mapped.keys():
+        c = biased_classes_mapped[b]
+        exclusive = 0; cooccur = 0; other = 0
+        for key in labels.keys():
+            if labels[key][b]==1 and labels[key][c]==1:
+                cooccur += 1
+            elif labels[key][b]==1 and labels[key][c]==0:
+                exclusive += 1
+            else:
+                other += 1
+
+        # Calculate weight (1-beta)/(1-beta^n) for each group
+        cooccur_weight = (1-beta)/(1-np.power(beta, cooccur))
+        exclusive_weight = (1-beta)/(1-np.power(beta, exclusive))
+        other_weight = (1-beta)/(1-np.power(beta, other))
+
+        # Have the smallest weight be 1 and the rest proportional to it
+        # so as to balance it with other categories that have weight 1
+        # instead of having the three weights sum to 1
+        sum_weight = np.min([exclusive_weight, cooccur_weight, other_weight])
+
+        # Appropriately normalize the weights
+        exclusive_weight /= sum_weight
+        cooccur_weight /= sum_weight
+        other_weight /= sum_weight
+
+        # Save the weights
+        w[b, 0] = exclusive_weight
+        w[b, 1] = cooccur_weight
+        w[b, 2] = other_weight
 
     return w

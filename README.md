@@ -33,10 +33,7 @@ This is a non-official, in-progress implementation of [Don't Judge an Object by 
 
 ## Utils
 ```load_data.py```
-- **Description**: Creates dataset loaders
+- **Description**: Creates dataset loaders and calculates loss weights for class-balancing and feature-split methods.
 
 ```classifier.py```
 - **Description**: Defines the multi-label classifier with various training methods. 
-
-```basenet.py```
-- **Description**: Defines ResNet-50 backbone architecture. 
