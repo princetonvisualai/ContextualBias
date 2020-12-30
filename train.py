@@ -111,8 +111,6 @@ for i in range(classifier.epoch, classifier.epoch+arg['nepoch']+1):
         labels_list, scores_list, test_loss_list = classifier.test_weighted(testset, biased_classes_mapped, weight=10)
     if arg['model'] == 'cam':
         labels_list, scores_list, test_loss_list = classifier.test_cam(testset, pretrained_net, biased_classes_mapped)
-    if arg['model'] == 'featuresplit':
-        labels_list, scores_list, test_loss_list = classifier.test_featuresplit(testset, biased_classes_mapped, weight, xs_prev_ten)
 
     # Record train/val loss
     tb.add_scalar('Loss/Train', np.mean(train_loss_list), i)
