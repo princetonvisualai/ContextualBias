@@ -92,7 +92,7 @@ for i in range(classifier.epoch, classifier.epoch+arg['nepoch']+1):
     if arg['model'] == 'weighted':
         train_loss_list = classifier.train_weighted(trainset, biased_classes_mapped, weight=10)
     if arg['model'] == 'cam':
-        train_loss_list = classifier.train_CAM(trainset, pretrained_net, biased_classes_mapped)
+        train_loss_list = classifier.train_cam(trainset, pretrained_net, biased_classes_mapped)
     if arg['model'] == 'featuresplit':
         if i == 0: xs_prev_ten = []
         train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten)
@@ -101,7 +101,7 @@ for i in range(classifier.epoch, classifier.epoch+arg['nepoch']+1):
     classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], i))
 
     # Do inference with the model
-    if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased']:
+    if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased', 'featuresplit']:
         labels_list, scores_list, test_loss_list = classifier.test(testset)
     if arg['model'] == 'negativepenalty':
         labels_list, scores_list, test_loss_list = classifier.test_negativepenalty(testset, biased_classes_mapped, penalty=10)
@@ -111,8 +111,6 @@ for i in range(classifier.epoch, classifier.epoch+arg['nepoch']+1):
         labels_list, scores_list, test_loss_list = classifier.test_weighted(testset, biased_classes_mapped, weight=10)
     if arg['model'] == 'cam':
         labels_list, scores_list, test_loss_list = classifier.test_cam(testset, pretrained_net, biased_classes_mapped)
-    if arg['model'] == 'featuresplit':
-        labels_list, scores_list, test_loss_list = classifier.test_featuresplit(testset, biased_classes_mapped, weight, xs_prev_ten)
 
     # Record train/val loss
     tb.add_scalar('Loss/Train', np.mean(train_loss_list), i)

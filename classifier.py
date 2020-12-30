@@ -339,7 +339,7 @@ class multilabel_classifier():
 
         return labels_list, scores_list, loss_list
 
-    def train_CAM(self, loader, pretrained_net, biased_classes_mapped):
+    def train_cam(self, loader, pretrained_net, biased_classes_mapped):
         """Train the 'CAM-based' model for one epoch"""
 
         def returnCAM(feature_conv, weight_softmax, class_idx, device):
@@ -423,7 +423,7 @@ class multilabel_classifier():
 
         return loss_list
 
-    def test_CAM(self, loader, pretrained_net, biased_classes_mapped):
+    def test_cam(self, loader, pretrained_net, biased_classes_mapped):
         """Evaluate the 'CAM-based' model"""
 
         def returnCAM(feature_conv, weight_softmax, class_idx, device):
@@ -594,77 +594,3 @@ class multilabel_classifier():
         self.epoch += 1
 
         return loss_list, xs_prev_ten
-
-    def test_featuresplit(self, loader, biased_classes_mapped, weight, xs_prev_ten):
-        """Evaluate the 'feature-splitting' model"""
-
-        self.model = self.model.to(device=self.device, dtype=self.dtype)
-        self.model.eval()
-
-        with torch.no_grad():
-
-            labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            loss_list = []
-
-            for i, (images, labels, ids) in enumerate(loader):
-                images = images.to(device=self.device, dtype=self.dtype)
-                labels = labels.to(device=self.device, dtype=self.dtype)
-
-                # Identify exclusive instances
-                exclusive = torch.zeros((labels.shape[0]), dtype=bool)
-                exclusive_list = [] # Image indices with exclusives
-                exclusive_classes = [] # (b, c) pair for the above images
-                for m in range(labels.shape[0]):
-                    for b in biased_classes_mapped.keys():
-                        c = biased_classes_mapped[b]
-                        if (labels[m,b]==1) & (labels[m,c]==0):
-                            exclusive[m] = True
-                            exclusive_list.append(m)
-                            exclusive_classes.append(b)
-
-                # Update parameters with non-exclusive samples (co-occur or neither b nor c appears)
-                if (~exclusive).sum() > 0:
-                    x_non = self.forward(images[~exclusive])
-                    criterion = torch.nn.BCEWithLogitsLoss()
-                    loss_non = criterion(x_non, labels[~exclusive])
-                    l_non = loss_non.item()
-                else:
-                    l_non = 0.
-
-                # Update parameters with exclusive samples
-                if exclusive.sum() > 0:
-                    x_exc = self.forward(images[exclusive])
-
-                    # Replace the second half of the features with xs_mean
-                    if len(xs_prev_ten) > 0:
-                        xs_mean = torch.cat(xs_prev_ten).mean(0)
-                        x_exc[:, 1024:] = xs_mean.detach()
-
-                    # Get the loss
-                    out_exc = x_exc
-                    criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
-                    loss_exc_tensor = criterion(out_exc, labels[exclusive])
-
-                    # Create a loss weight tensor
-                    weight_tensor = torch.ones_like(out_exc)
-                    exclusive_unique_list = sorted(list(set(exclusive_list)))
-                    for k in range(len(exclusive_list)):
-                        m = exclusive_unique_list.index(exclusive_list[k])
-                        b = exclusive_classes[k]
-                        weight_tensor[m, b] = weight[b]
-
-                    # Compute the final loss and the gradients
-                    loss_exc = (weight_tensor * loss_exc_tensor).mean()
-                    l_exc = loss_exc.item()
-                else:
-                    l_exc = 0.
-
-                loss = (l_non*(~exclusive).sum() + l_exc*exclusive.sum())/exclusive.shape[0]
-                loss_list.append(loss.item())
-
-                scores = torch.sigmoid(outputs).squeeze()
-                labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
-                scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
-
-        return labels_list, scores_list, loss_list
