@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+from collections import OrderedDict
 
 import torch
 import torchvision
@@ -76,12 +77,12 @@ class multilabel_classifier():
                 labels = labels.to(device=self.device, dtype=self.dtype)
 
                 # Center crop
-                outputs, _ = self.forward(images)
+                # outputs, _ = self.forward(images)
 
                 # Ten crop
-                # bs, ncrops, c, h, w = images.size()
-                # outputs, _ = self.forward(images.view(-1, c, h, w)) # fuse batch size and ncrops
-                # outputs = outputs.view(bs, ncrops, -1).mean(1) # avg over crops
+                bs, ncrops, c, h, w = images.size()
+                outputs, _ = self.forward(images.view(-1, c, h, w)) # fuse batch size and ncrops
+                outputs = outputs.view(bs, ncrops, -1).mean(1) # avg over crops
 
                 criterion = torch.nn.BCEWithLogitsLoss()
                 loss = criterion(outputs.squeeze(), labels)
@@ -326,40 +327,6 @@ class multilabel_classifier():
 
         self.epoch += 1
         return loss_list
-
-    def train_attribute_decorrelation(self, loader, pretrained_net, biased_classes_mapped, humanlabels_to_onehot):
-        # Define semantic groups according to http://vision.cs.utexas.edu/projects/resistshare/
-        semantic_attributes = [
-            ['patches', 'spots', 'stripes', 'furry', 'hairless', 'toughskin'],
-            ['fierce', 'timid', 'smart', 'group', 'solitary', 'nestspot', 'domestic'],
-            ['black', 'white', 'blue', 'brown', 'gray', 'orange', 'red', 'yellow'],
-            ['flippers', 'hands', 'hooves', 'pads', 'paws', 'longleg', 'longneck', 'tail', 
-             'chewteeth', 'meatteeth', 'buckteeth', 'strainteeth', 'horns', 'claws',
-             'tusks', 'bipedal', 'quadrapedal'],
-            ['flys', 'hops', 'swims', 'tunnels', 'walks', 'fast', 'slow', 'strong', 
-             'weak', 'muscle'],
-            ['fish', 'meat', 'plankton', 'vegetation', 'insects', 'forager', 'grazer', 
-             'hunter', 'scavenger', 'skimmer', 'stalker'],
-            ['coastal', 'desert', 'bush', 'plains', 'forest', 'fields', 'jungle', 'mountains',
-             'ocean', 'ground', 'water', 'tree', 'cave'],
-            ['active', 'inactive', 'nocturnal', 'hibernate', 'agility'],
-            ['big', 'small', 'bulbous', 'lean']
-        ]
-        semantic_attributes_onehot = []
-        for group in semantic_attributes:
-            group_onehot = [humanlabels_to_onehot[attribute] for attribute in group]
-            semantic_attributes_onehot.append(group_onehot)
-        
-        pretrained_net.model = pretrained_net.model.to(device=self.device, dtype=self.dtype)
-        pretrained_net.model.eval()
-
-        model_W = torch.nn.Sequential(torch.nn.Linear(self.hidden_size, nclasses))
-        self.optimizer = torch.optim.SGD(model_W.parameters(), lr=0.01)
-
-        for i, (images, labels, ids) in enumerate(loader):
-            images = images.to(device=self.device, dtype=self.dtype)
-            labels = labels.to(device=self.device, dtype=self.dtype)
-            outputs, _ = pretrained_net.forward(images)
  
     def test_weighted(self, loader, biased_classes_mapped, weight=10):
         """Evaluate the 'strong baseline - weighted loss' model"""
@@ -397,6 +364,109 @@ class multilabel_classifier():
                 labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
                 scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
 
+        return labels_list, scores_list, loss_list
+    
+    def train_attribdecorr(self, loader, biased_classes_mapped, humanlabels_to_onehot, compshare_lambda=0.01):
+        # Define semantic groups according to http://vision.cs.utexas.edu/projects/resistshare/
+        semantic_attributes = [
+            ['patches', 'spots', 'stripes', 'furry', 'hairless', 'toughskin'],
+            ['fierce', 'timid', 'smart', 'group', 'solitary', 'nestspot', 'domestic'],
+            ['black', 'white', 'blue', 'brown', 'gray', 'orange', 'red', 'yellow'],
+            ['flippers', 'hands', 'hooves', 'pads', 'paws', 'longleg', 'longneck', 'tail', 
+             'chewteeth', 'meatteeth', 'buckteeth', 'strainteeth', 'horns', 'claws',
+             'tusks', 'bipedal', 'quadrapedal'],
+            ['flys', 'hops', 'swims', 'tunnels', 'walks', 'fast', 'slow', 'strong', 
+             'weak', 'muscle'],
+            ['fish', 'meat', 'plankton', 'vegetation', 'insects', 'forager', 'grazer', 
+             'hunter', 'scavenger', 'skimmer', 'stalker'],
+            ['coastal', 'desert', 'bush', 'plains', 'forest', 'fields', 'jungle', 'mountains',
+             'ocean', 'ground', 'water', 'tree', 'cave'],
+            ['active', 'inactive', 'nocturnal', 'hibernate', 'agility'],
+            ['big', 'small', 'bulbous', 'lean']
+        ]
+        semantic_attributes_onehot = []
+        for group in semantic_attributes:
+            group_onehot = [humanlabels_to_onehot[attribute] for attribute in group]
+            semantic_attributes_onehot.append(group_onehot)
+        print('Semantic attributes:\n', semantic_attributes_onehot)
+        
+        self.model = self.model.to(device=self.device, dtype=self.dtype)
+        self.model.eval()
+
+        params = OrderedDict([
+            ('W', torch.nn.Linear(self.hidden_size, nclasses, bias=False))
+        ])
+        self.W = torch.nn.Sequential(params)
+        self.optimizer = torch.optim.SGD(model_W.parameters(), lr=0.001)
+
+        loss_list = []
+        for i, (images, labels, ids) in enumerate(loader):
+            images = images.to(device=self.device, dtype=self.dtype)
+            labels = labels.to(device=self.device, dtype=self.dtype)
+            outputs, _ = self.model.forward(images)
+            criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
+            regression_loss = criterion(outputs.squeeze(), labels)
+            
+            # Compute competition-sharing loss
+            delta = 0
+            for d in range(self.hidden_size):
+                for g in range(len(semantic_attributes_onehot)):
+                    W = self.W.state_dict()['W.weight']
+                    Sg = torch.LongTensor(semantic_attributes_onehot[g])
+                    w_dSg = W[d][Sg]
+                    delta += torch.linalg.norm(w_dSg)
+ 
+            compshare_loss = 0
+            for d in range(self.hidden_size):
+                for g in range(len(semantic_attributes_onehot)):
+                    W = self.W.state_dict()['W.weight']
+                    Sg = torch.LongTensor(semantic_attributes_onehot[g])
+                    w_dSg = W[d][Sg]
+                    delta_dg = torch.linalg.norm(w_dSg) / delta
+                    compshare_loss += torch.linalg.norm(w_dSg)**2.0
+            
+            loss = regression_loss + compshare_lambda * compshare_loss
+            loss.backward()
+            self.optimizer.step()
+            
+            loss_list.append(loss.item())
+            if self.print_freq and (i % self.print_freq == 0):
+                print('Training step {} [{}|{}] loss: {}'.format(self.epoch, i+1, len(loader), loss.item()), flush=True)
+
+        self.epoch += 1
+        return loss_list
+
+    def test_attribdecorr(self, loader, biased_classes_mapped, compshare_lambda=0.01):
+        
+        self.model = self.model.to(device=self.device, dtype=self.dtype)
+        self.model.eval()
+
+        with torch.no_grad():
+
+            labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            ids_list = []
+            loss_list = []
+
+            for i, (images, labels, ids) in enumerate(loader):
+                images = images.to(device=self.device, dtype=self.dtype)
+                labels = labels.to(device=self.device, dtype=self.dtype)
+
+                # Center crop
+                # outputs, _ = self.forward(images)
+
+                # Ten crop
+                bs, ncrops, c, h, w = images.size()
+                outputs, _ = self.forward(images.view(-1, c, h, w)) # fuse batch size and ncrops
+                outputs = outputs.view(bs, ncrops, -1).mean(1) # avg over crops
+
+                criterion = torch.nn.BCEWithLogitsLoss()
+                loss = criterion(outputs.squeeze(), labels)
+                loss_list.append(loss.item())
+                scores = torch.sigmoid(outputs).squeeze()
+
+                labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
+                scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
         return labels_list, scores_list, loss_list
 
     def train_CAM(self, loader, pretrained_net, biased_classes_mapped):
