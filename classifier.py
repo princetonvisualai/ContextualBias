@@ -410,9 +410,11 @@ class multilabel_classifier():
             pretrained_features.clear()
             pretrained_net.model.forward(images)
           
-            outputs = [torch.matmul(W, x.to(device=W.device, dtype=W.dtype).t()).squeeze() 
-                       for x in pretrained_features]
-            outputs = torch.cat(outputs, dim=1).t().to(device=self.device, dtype=self.dtype)
+            #outputs = [torch.matmul(W, x.to(device=W.device, dtype=W.dtype).t()).squeeze() 
+            #           for x in pretrained_features]
+            conv_outputs = [x.to(device=self.device, dtype=self.dtype) for x in pretrained_features]
+            conv_outputs = torch.cat(conv_outputs, dim=0).to(device=self.device, dtype=self.dtype)
+            outputs = self.model.forward(conv_outputs)
             criterion = torch.nn.BCEWithLogitsLoss()
             regression_loss = criterion(outputs, labels)
             
