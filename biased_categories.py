@@ -71,7 +71,8 @@ def main():
         for i, (images, labels, ids) in enumerate(valset):
             images = images.to(device=Classifier.device, dtype=Classifier.dtype)
             labels = labels.to(device=Classifier.device, dtype=Classifier.dtype)
-            scores, _ = Classifier.forward(images)
+            # scores, _ = Classifier.forward(images) # from when we use tencrop
+	    scores = Classifier.forward(images)
             scores = torch.sigmoid(scores).squeeze().data.cpu().numpy()
             for j in range(images.shape[0]):
                 id = ids[j]
