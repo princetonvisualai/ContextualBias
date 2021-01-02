@@ -504,6 +504,22 @@ class multilabel_classifier():
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.model.train()
 
+        # Hook the feature extractor
+        Classifier_features = []
+        def hook_classifier_features(module, input, output):
+            Classifier_features.append(output)
+        self.model._modules['resnet'].layer4.register_forward_hook(hook_classifier_features)
+        Classifier_params = list(self.model.parameters())
+        Classifier_softmax_weight = Classifier_params[-2].squeeze(0)
+
+        pretrained_features = []
+        def hook_pretrained_feature(module, input, output):
+            pretrained_features.append(output)
+        pretrained_net.model._modules['resnet'].layer4.register_forward_hook(hook_pretrained_feature)
+        pretrained_params = list(pretrained_net.model.parameters())
+        pretrained_softmax_weight = np.squeeze(pretrained_params[-2])
+
+        # Loop over batches
         loss_list = []
         for i, (images, labels, ids) in enumerate(loader):
             images = images.to(device=self.device, dtype=self.dtype)
@@ -519,19 +535,9 @@ class multilabel_classifier():
                         cooccur.append(m)
                         cooccur_classes.append([b, c])
 
-            # Hook the feature extractor
-            Classifier_features = []
-            def hook_classifier_features(module, input, output):
-                Classifier_features.append(output)
-            self.model._modules['resnet'].layer4.register_forward_hook(hook_classifier_features)
-            Classifier_params = list(self.model.parameters())
-            Classifier_softmax_weight = Classifier_params[-2].squeeze(0)
-
-            # Get image features
-            self.optimizer.zero_grad()
-            outputs = self.forward(images)
-
             # Get CAM from the current network
+            Classifier_features = []
+            outputs = self.forward(images) # where the length of Classifier_features increases
             CAMs = torch.Tensor(0, 2, 7, 7).to(device=self.device)
             for k in range(len(cooccur)):
                 CAM = returnCAM(Classifier_features[0][cooccur[k]].unsqueeze(0), Classifier_softmax_weight, cooccur_classes[k], self.device)
@@ -539,11 +545,6 @@ class multilabel_classifier():
 
             # Get CAM from the pre-trained network
             pretrained_features = []
-            def hook_pretrained_feature(module, input, output):
-                pretrained_features.append(output)
-            pretrained_net.model._modules['resnet'].layer4.register_forward_hook(hook_pretrained_feature)
-            pretrained_params = list(pretrained_net.model.parameters())
-            pretrained_softmax_weight = np.squeeze(pretrained_params[-2])
             _ = pretrained_net.model(images)
             CAMs_pretrained = torch.Tensor(0, 2, 7, 7).to(self.device)
             for k in range(len(cooccur)):
@@ -588,6 +589,21 @@ class multilabel_classifier():
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.model.eval()
 
+        # Hook the feature extractor
+        Classifier_features = []
+        def hook_classifier_features(module, input, output):
+            Classifier_features.append(output)
+        self.model._modules['resnet'].layer4.register_forward_hook(hook_classifier_features)
+        Classifier_params = list(self.model.parameters())
+        Classifier_softmax_weight = Classifier_params[-2].squeeze(0)
+
+        pretrained_features = []
+        def hook_pretrained_feature(module, input, output):
+            pretrained_features.append(output)
+        pretrained_net.model._modules['resnet'].layer4.register_forward_hook(hook_pretrained_feature)
+        pretrained_params = list(pretrained_net.model.parameters())
+        pretrained_softmax_weight = np.squeeze(pretrained_params[-2])
+
         with torch.no_grad():
 
             labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
@@ -608,18 +624,9 @@ class multilabel_classifier():
                             cooccur.append(m)
                             cooccur_classes.append([b, c])
 
-                # Hook the feature extractor
-                Classifier_features = []
-                def hook_classifier_features(module, input, output):
-                    Classifier_features.append(output)
-                self.model._modules['resnet'].layer4.register_forward_hook(hook_classifier_features)
-                Classifier_params = list(self.model.parameters())
-                Classifier_softmax_weight = Classifier_params[-2].squeeze(0)
-
-                # Get image features
-                outputs = self.forward(images)
-
                 # Get CAM from the current network
+                Classifier_features = []
+                outputs = self.forward(images)
                 CAMs = torch.Tensor(0, 2, 7, 7).to(device=self.device)
                 for k in range(len(cooccur)):
                     CAM = returnCAM(Classifier_features[0][cooccur[k]].unsqueeze(0), Classifier_softmax_weight, cooccur_classes[k], self.device)
@@ -627,11 +634,6 @@ class multilabel_classifier():
 
                 # Get CAM from the pre-trained network
                 pretrained_features = []
-                def hook_pretrained_feature(module, input, output):
-                    pretrained_features.append(output)
-                pretrained_net.model._modules['resnet'].layer4.register_forward_hook(hook_pretrained_feature)
-                pretrained_params = list(pretrained_net.model.parameters())
-                pretrained_softmax_weight = np.squeeze(pretrained_params[-2])
                 _ = pretrained_net.model(images)
                 CAMs_pretrained = torch.Tensor(0, 2, 7, 7).to(self.device)
                 for k in range(len(cooccur)):

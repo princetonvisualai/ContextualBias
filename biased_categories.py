@@ -151,7 +151,6 @@ def main():
         top_20_idx = np.argsort(biased_pairs[:,2])[-20:]
         top_20 = []
         for i in top_20_idx:
-            #print(onehot_to_humanlabels[int(biased_pairs[i,0])], onehot_to_humanlabels[int(biased_pairs[i,1])], biased_pairs[i,2])
             top_20.append([onehot_to_humanlabels[int(biased_pairs[i,0])], onehot_to_humanlabels[int(biased_pairs[i,1])], biased_pairs[i,2]])
 
         result = {'top_20': top_20, 'biased_pairs': biased_pairs}
