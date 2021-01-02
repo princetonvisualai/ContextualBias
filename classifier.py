@@ -410,8 +410,6 @@ class multilabel_classifier():
             pretrained_features.clear()
             pretrained_net.model.forward(images)
           
-            #outputs = [torch.matmul(W, x.to(device=W.device, dtype=W.dtype).t()).squeeze() 
-            #           for x in pretrained_features]
             conv_outputs = [x.to(device=self.device, dtype=self.dtype) for x in pretrained_features]
             conv_outputs = torch.cat(conv_outputs, dim=0).to(device=self.device, dtype=self.dtype)
             outputs = self.model.forward(conv_outputs)
@@ -468,9 +466,9 @@ class multilabel_classifier():
                 pretrained_net.model.forward(images)
           
                 # Center crop
-                outputs = [torch.matmul(W, x.to(device=W.device, dtype=W.dtype).t()).squeeze() 
-                           for x in pretrained_features]
-                outputs = torch.cat(outputs, dim=1).t().to(device=self.device, dtype=self.dtype)
+                conv_outputs = [x.to(device=self.device, dtype=self.dtype) for x in pretrained_features]
+                conv_outputs = torch.cat(conv_outputs, dim=0).to(device=self.device, dtype=self.dtype)
+                outputs = self.model.forward(conv_outputs)
 
                 # Ten crop
                 # bs, ncrops, c, h, w = images.size()

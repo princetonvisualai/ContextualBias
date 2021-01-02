@@ -103,15 +103,16 @@ def main():
     for i in range(classifier.epoch, classifier.epoch+arg['nepoch']+1):
 
         # Reduce learning rate from 0.1 to 0.01
-        if i == arg['drop'] and arg['dataset'] == 'COCOStuff':
-            classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, 
-                                                   momentum=0.9, weight_decay=arg['wd'])
-        if i == arg['drop'] and arg['dataset'] == 'AwA':
-            classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.001, 
-                                                   momentum=0.9, weight_decay=arg['wd'])
-        if i == arg['drop'] and arg['dataset'] == 'DeepFashion':
-            classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, 
-                                                   momentum=0.9, weight_decay=arg['wd'])
+        if arg['model'] != 'attribdecorr':
+            if i == arg['drop'] and arg['dataset'] == 'COCOStuff':
+                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, 
+                                                       momentum=0.9, weight_decay=arg['wd'])
+            if i == arg['drop'] and arg['dataset'] == 'AwA':
+                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.001, 
+                                                       momentum=0.9, weight_decay=arg['wd'])
+            if i == arg['drop'] and arg['dataset'] == 'DeepFashion':
+                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, 
+                                                       momentum=0.9, weight_decay=arg['wd'])
 
         if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased']:
             train_loss_list = classifier.train(trainset)
