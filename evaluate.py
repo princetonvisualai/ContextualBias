@@ -40,8 +40,31 @@ labels_list, scores_list, val_loss_list = classifier.test(valset)
 
 # Calculate and record mAP
 APs = []
-for k in range(arg['nclasses']):
-    APs.append(average_precision_score(labels_list[:,k], scores_list[:,k]))
+
+def recall3(labels_list, scores_list, k):
+    num_imgs = np.sum(labels_list)
+    #print(labels_list[:,k].astype(int))
+    image_scores = scores_list[labels_list.astype(bool)]
+    #print(image_scores.shape)
+    # get top 3 labels (index) from images that contain label k                                                                        
+    if len(image_scores.shape)==1:
+        top3_labels = image_scores.argsort()[-3:]
+    else:
+        top3_labels = image_scores.argsort()[:, -3:]
+    num_intop3 = np.sum(top3_labels==k)
+    # Recall@3 is num_intop3/num_imgs                                                                                             
+    recall = num_intop3/num_imgs if num_imgs!=0 else 0
+    return recall
+
+
+if arg['dataset'] == 'DeepFashion':
+    for k in range(arg['nclasses']):
+        recall = recall3(labels_list[:,k], scores_list, k)
+        APs.append(recall)
+
+else:
+    for k in range(arg['nclasses']):
+        APs.append(average_precision_score(labels_list[:,k], scores_list[:,k]))
 mAP = np.nanmean(APs)
 print('mAP (all): {:.2f}'.format(mAP*100.))
 if arg['dataset'] == 'COCOStuff':
@@ -52,6 +75,9 @@ if arg['dataset'] == 'COCOStuff':
 exclusive_AP_list = []
 cooccur_AP_list = []
 biased_classes_list = sorted(list(biased_classes_mapped.keys()))
+#print('biased classes list: ', biased_classes_list)
+#print('biased classes list[0]: ', biased_classes_list[0])
+
 for k in range(len(biased_classes_list)):
     b = biased_classes_list[k]
     c = biased_classes_mapped[b]
@@ -59,8 +85,13 @@ for k in range(len(biased_classes_list)):
     # Categorize the images into co-occur/exclusive/other
     if arg['splitbiased']:
         cooccur = (labels_list[:,arg['nclasses']+k-20]==1)
+        print(len(np.where(cooccur==True)[0]))
         exclusive = (labels_list[:,b]==1)
     else:
+        #print('b:', b)
+        #print(labels_list.shape)
+        #print(labels_list[:,b].shape)
+        #print(labels_list[:,c].shape)
         cooccur = (labels_list[:,b]==1) & (labels_list[:,c]==1)
         exclusive = (labels_list[:,b]==1) & (labels_list[:,c]==0)
     other = (~exclusive) & (~cooccur)
@@ -70,10 +101,14 @@ for k in range(len(biased_classes_list)):
         cooccur_AP = average_precision_score(labels_list[cooccur+other, arg['nclasses']+k-20],
             scores_list[cooccur+other, arg['nclasses']+k-20])
     else:
-        cooccur_AP = average_precision_score(labels_list[cooccur+other, b],
-            scores_list[cooccur+other, b])
-    exclusive_AP = average_precision_score(labels_list[exclusive+other, b],
-        scores_list[exclusive+other, b])
+        if arg['dataset'] == 'DeepFashion':
+            cooccur_AP = recall3(labels_list[cooccur+other, b], scores_list[cooccur+other], b)
+        else:
+            cooccur_AP = average_precision_score(labels_list[cooccur+other, b],scores_list[cooccur+other, b])
+    if arg['dataset'] == 'DeepFashion':
+        exclusive_AP = recall3(labels_list[exclusive+other, b], scores_list[exclusive+other], b)
+    else:
+        exclusive_AP = average_precision_score(labels_list[exclusive+other, b],scores_list[exclusive+other, b])
 
     # Record and print
     cooccur_AP_list.append(cooccur_AP)
