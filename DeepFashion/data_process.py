@@ -114,4 +114,17 @@ if True:
     with open('labels_train.pkl', 'wb+') as handle:
         pickle.dump(labels, handle)
 
+ if True:
+    count = 0
+    labels = {}
+    for file in test:
+        label_onehot_1000 = img_to_label[file]
+        label_onehot_250 = [label_onehot_1000[i] for i in top_250]
+        label_onehot_250 = torch.LongTensor(label_onehot_250).float()
+        labels[file] = label_onehot_250 # Save the one-hot encoded label                                                                                       
+        count += 1
+
+    print('Finished processing {} test labels'.format(len(labels)))
+    with open('labels_test.pkl', 'wb+') as handle:                                                                                                            
+       pickle.dump(labels, handle)    
         
