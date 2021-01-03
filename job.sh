@@ -6,7 +6,7 @@
 #SBATCH -A visualai            # specify which group of nodes to use
 #SBATCH --mem-per-cpu=4G       # memory per cpu-core (4G default)
 #SBATCH --gres=gpu:rtx_3090:2  # number of GPUs requested
-#SBATCH -t 16:00:00            # time requested in hour:minute:second
+#SBATCH -t 36:00:00            # time requested in hour:minute:second
 
 source /n/fs/context-scr/context/bin/activate # for RTX3090
 #source /n/fs/visualai-scr/sunnie/basic/bin/activate # for non-RTX3090
@@ -36,15 +36,15 @@ source /n/fs/context-scr/context/bin/activate # for RTX3090
 
 
 ### AwA
-#python train.py --dataset AwA --model featuresplit --nepoch 20 --nclasses 85 \
+#python train.py --dataset AwA --model splitbiased --nepoch 20 --nclasses 85 \
 #  --lr 0.01 --wd 0.0001 --drop 10 \
 #  --test_batchsize 150 --train_batchsize 200 \
 #  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
 #  --labels_test /n/fs/context-scr/AwA/labels_val.pkl \
-#  --outdir AwA/save/featuresplit_256
+#  --outdir AwA/save/splitbiased2
 
 python train.py --dataset AwA --model attribdecorr --nepoch 20 --nclasses 85 \
-  --lr 0.01 --wd 0.0001 --drop 10 --compshare_lambda 5 \
+  --lr 0.001 --wd 0.0001 --drop 20 --compshare_lambda 10 \
   --test_batchsize 150 --train_batchsize 200 \
   --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
   --labels_test /n/fs/context-scr/AwA/labels_val.pkl \
@@ -57,3 +57,9 @@ python train.py --dataset AwA --model attribdecorr --nepoch 20 --nclasses 85 \
 #  --labels_train /n/fs/context-scr/DeepFashion/labels_train.pkl \
 #  --labels_test /n/fs/context-scr/DeepFashion/labels_val.pkl \
 #  --outdir DeepFashion/save
+
+#python train.py --dataset DeepFashion --model featuresplit --nepoch 50 --nclasses 250 \
+#  --lr 0.1 --test_batchsize 140 --drop 30 \
+#  --labels_train /n/fs/context-scr/DeepFashion/labels_train.pkl \
+#  --labels_test /n/fs/context-scr/DeepFashion/labels_test.pkl \
+#  --outdir DeepFashion/save/featuresplit_1536
