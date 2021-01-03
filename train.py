@@ -139,15 +139,19 @@ def main():
         # Do inference with the model
         if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit']:
             labels_list, scores_list, test_loss_list = classifier.test(testset)
-        if arg['model'] == 'negativepenalty':
+        elif arg['model'] == 'negativepenalty':
             labels_list, scores_list, test_loss_list = classifier.test_negativepenalty(testset, biased_classes_mapped, penalty=10)
-        if arg['model'] == 'classbalancing':
+        elif arg['model'] == 'classbalancing':
             labels_list, scores_list, test_loss_list = classifier.test_classbalancing(testset, biased_classes_mapped, weight)
-        if arg['model'] == 'weighted':
+        elif arg['model'] == 'weighted':
             labels_list, scores_list, test_loss_list = classifier.test_weighted(testset, biased_classes_mapped, weight=10)
-        if arg['model'] == 'attribdecorr':
-            labels_list, scores_list, test_loss_list = classifier.test_attribdecorr(testset, pretrained_net, 
-                                                                                    biased_classes_mapped, pretrained_features)
+        elif arg['model'] == 'attribdecorr':
+            labels_list, scores_list, test_loss_list = classifier.test_attribdecorr(testset, pretrained_net, biased_classes_mapped, pretrained_features)
+        else:
+            print('Unknown model type: {}'.format(arg['model']))
+            labels_list = None
+            scores_list = None
+            test_loss_list = None
 
         # Record train/val loss
         tb.add_scalar('Loss/Train', np.mean(train_loss_list), i)
