@@ -69,6 +69,8 @@ class multilabel_classifier():
                     if load_prefix == 'module':
                         new_key = key[7:]
                         new_state_dict[new_key] = value
+                    else:
+                        new_state_dict[key] = value
             self.model.load_state_dict(new_state_dict)
             self.epoch = A['epoch']
 
