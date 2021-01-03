@@ -9,6 +9,7 @@ from load_data import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str)
+parser.add_argument('--model', type=str)
 parser.add_argument('--modelpath', type=str, default=None)
 parser.add_argument('--labels', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
 parser.add_argument('--batchsize', type=int, default=170)
@@ -35,8 +36,18 @@ valset = create_dataset(arg['dataset'], arg['labels'], biased_classes_mapped, B=
 # Load model
 classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'], hidden_size=arg['hs'])
 
-# Do inference with the model
-labels_list, scores_list, val_loss_list = classifier.test(valset)
+# Do inference with the model                                                                                                                                  
+if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit']:
+    labels_list, scores_list, test_loss_list = classifier.test(testset)
+if arg['model'] == 'negativepenalty':
+    labels_list, scores_list, test_loss_list = classifier.test_negativepenalty(testset, biased_classes_mapped, penalty=10)
+if arg['model'] == 'classbalancing':
+    labels_list, scores_list, test_loss_list = classifier.test_classbalancing(testset, biased_classes_mapped, weight)
+if arg['model'] == 'weighted':
+    labels_list, scores_list, test_loss_list = classifier.test_weighted(testset, biased_classes_mapped, weight=10)
+if arg['model'] == 'attribdecorr':
+    labels_list, scores_list, test_loss_list = classifier.test_attribdecorr(testset, pretrained_net, biased_classes_mapped, pretrained_features)
+
 
 # Calculate and record mAP
 APs = []
