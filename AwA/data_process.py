@@ -93,7 +93,7 @@ if True:
         count += 1
 
     print('Finished processing {} test labels'.format(len(labels)))
-    with open('labels_val.pkl', 'wb+') as handle:
+    with open('labels_test.pkl', 'wb+') as handle:
        pickle.dump(labels, handle)
 
 # Process AwA2 train set labels:
