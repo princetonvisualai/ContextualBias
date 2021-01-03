@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+from collections import OrderedDict
+
 import torch
 import torchvision
 import torch.nn as nn
@@ -25,19 +27,49 @@ class ResNet50(nn.Module):
 
 class multilabel_classifier():
 
-    def __init__(self, device, dtype, nclasses=171, modelpath=None, hidden_size=2048, learning_rate=0.1, weight_decay=1e-4):
+    def __init__(self, device, dtype, nclasses=171, modelpath=None, hidden_size=2048, learning_rate=0.1, weight_decay=1e-4, attribdecorr=False, compshare_lambda=0.1):
         self.nclasses = nclasses
+        self.hidden_size = hidden_size
         self.device = device
         self.dtype = dtype
-        self.model = ResNet50(n_classes=nclasses, hidden_size=hidden_size, pretrained=True)
+
+        # For attribute decorrelation baseline, we train a linear classifier on top of pretrained deep features
+        if attribdecorr:
+            params = OrderedDict([
+                ('W', torch.nn.Linear(hidden_size, nclasses, bias=False))
+            ])
+            self.model = torch.nn.Sequential(params)
+            for param in self.model.parameters():
+                param.requires_grad = True
+            self.compshare_lambda = compshare_lambda
+        else:
+            self.model = ResNet50(n_classes=nclasses, hidden_size=hidden_size, pretrained=True)
+            self.model.require_all_grads()
+
+        # Multi-GPU training
+        if torch.cuda.device_count() > 1:
+            self.model = nn.DataParallel(self.model)
         self.model = self.model.to(device=self.device, dtype=self.dtype)
-        self.model.require_all_grads()
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=weight_decay)
         self.epoch = 0
         self.print_freq = 10
+
         if modelpath != None:
             A = torch.load(modelpath, map_location=device)
-            self.model.load_state_dict(A['model'])
+            load_state_dict = A['model']
+            load_prefix = list(load_state_dict.keys())[0][:7]
+            new_state_dict = {}
+            for key in load_state_dict:
+                value = load_state_dict[key]
+                if torch.cuda.device_count() > 1:
+                    if load_prefix != 'module': 
+                        new_key = 'module.' + key
+                        new_state_dict[new_key] = value
+                else:
+                    if load_prefix == 'module':
+                        new_key = key[7:]
+                        new_state_dict[new_key] = value
+            self.model.load_state_dict(new_state_dict)
             self.epoch = A['epoch']
 
     def forward(self, x):
@@ -300,7 +332,7 @@ class multilabel_classifier():
 
         self.epoch += 1
         return loss_list
-
+ 
     def test_weighted(self, loader, biased_classes_mapped, weight=10):
         """Evaluate the 'strong baseline - weighted loss' model"""
 
@@ -337,6 +369,119 @@ class multilabel_classifier():
                 labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
                 scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
 
+        return labels_list, scores_list, loss_list
+    
+    def train_attribdecorr(self, loader, pretrained_net, biased_classes_mapped, humanlabels_to_onehot, pretrained_features, compshare_lambda=0.1):
+        # Define semantic groups according to http://vision.cs.utexas.edu/projects/resistshare/
+        semantic_attributes = [
+            ['patches', 'spots', 'stripes', 'furry', 'hairless', 'toughskin'],
+            ['fierce', 'timid', 'smart', 'group', 'solitary', 'nestspot', 'domestic'],
+            ['black', 'white', 'blue', 'brown', 'gray', 'orange', 'red', 'yellow'],
+            ['flippers', 'hands', 'hooves', 'pads', 'paws', 'longleg', 'longneck', 'tail', 
+             'chewteeth', 'meatteeth', 'buckteeth', 'strainteeth', 'horns', 'claws',
+             'tusks', 'bipedal', 'quadrapedal'],
+            ['flys', 'hops', 'swims', 'tunnels', 'walks', 'fast', 'slow', 'strong', 
+             'weak', 'muscle'],
+            ['fish', 'meat', 'plankton', 'vegetation', 'insects', 'forager', 'grazer', 
+             'hunter', 'scavenger', 'skimmer', 'stalker'],
+            ['coastal', 'desert', 'bush', 'plains', 'forest', 'fields', 'jungle', 'mountains',
+             'ocean', 'ground', 'water', 'tree', 'cave'],
+            ['active', 'inactive', 'nocturnal', 'hibernate', 'agility'],
+            ['big', 'small', 'bulbous', 'lean']
+        ]
+        semantic_attributes_idxs = []
+        for group in semantic_attributes:
+            idxs = [humanlabels_to_onehot[attribute] for attribute in group]
+            semantic_attributes_idxs.append(idxs)
+        
+        pretrained_net.model.to(device=self.device, dtype=self.dtype)
+        pretrained_net.model.eval()
+        self.model.train()
+ 
+        loss_list = []
+        for i, (images, labels, ids) in enumerate(loader):
+            images = images.to(device=self.device, dtype=self.dtype)
+            labels = labels.to(device=self.device, dtype=self.dtype) 
+
+            # Get output scores by substituting the last fully connected layer with W
+            self.optimizer.zero_grad()
+            W_key = list(self.model.state_dict().keys())[0]
+            W = self.model.state_dict()[W_key]
+            pretrained_features.clear()
+            pretrained_net.model.forward(images)
+          
+            conv_outputs = [x.to(device=self.device, dtype=self.dtype) for x in pretrained_features]
+            conv_outputs = torch.cat(conv_outputs, dim=0).to(device=self.device, dtype=self.dtype)
+            outputs = self.model.forward(conv_outputs)
+            criterion = torch.nn.BCEWithLogitsLoss()
+            regression_loss = criterion(outputs, labels)
+            
+            # Compute competition-sharing loss
+            delta = 0
+            for d in range(self.hidden_size):
+                for g in range(len(semantic_attributes_idxs)):
+                    Sg = torch.LongTensor(semantic_attributes_idxs[g])
+                    w_dSg = W[Sg, d]
+                    delta += torch.linalg.norm(w_dSg)
+ 
+            compshare_loss = 0
+            for d in range(self.hidden_size):
+                for g in range(len(semantic_attributes_idxs)):
+                    Sg = torch.LongTensor(semantic_attributes_idxs[g])
+                    w_dSg = W[Sg, d]
+                    delta_dg = torch.linalg.norm(w_dSg) / delta
+                    compshare_loss += torch.linalg.norm(w_dSg)**2.0 / delta_dg
+
+            loss = regression_loss + compshare_lambda * compshare_loss
+            loss.backward()
+            self.optimizer.step()
+            
+            loss_list.append(loss.item())
+            if self.print_freq and (i % self.print_freq == 0):
+                print('Training step {} [{}|{}] loss: {}'.format(self.epoch, i+1, len(loader), loss.item()), flush=True)
+
+        self.epoch += 1
+        return loss_list
+
+    def test_attribdecorr(self, loader, pretrained_net, biased_classes_mapped, pretrained_features, compshare_lambda=0.01):
+        
+        pretrained_net.model.to(device=self.device, dtype=self.dtype)
+        pretrained_net.model.eval()
+        self.model.eval()
+
+        with torch.no_grad():
+            labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            ids_list = []
+            loss_list = []
+
+            for i, (images, labels, ids) in enumerate(loader):
+                images = images.to(device=self.device, dtype=self.dtype)
+                labels = labels.to(device=self.device, dtype=self.dtype)
+                
+                # Get output scores by substituting the last fully connected layer with W
+                W_key = list(self.model.state_dict().keys())[0]
+                W = self.model.state_dict()[W_key]
+                pretrained_features.clear()
+                pretrained_net.model.forward(images)
+          
+                # Center crop
+                conv_outputs = [x.to(device=self.device, dtype=self.dtype) for x in pretrained_features]
+                conv_outputs = torch.cat(conv_outputs, dim=0).to(device=self.device, dtype=self.dtype)
+                outputs = self.model.forward(conv_outputs)
+
+                # Ten crop
+                # bs, ncrops, c, h, w = images.size()
+                # outputs = self.forward(images.view(-1, c, h, w)) # fuse batch size and ncrops
+                # outputs = outputs.view(bs, ncrops, -1).mean(1) # avg over crops
+
+                criterion = torch.nn.BCEWithLogitsLoss()
+                loss = criterion(outputs.squeeze(), labels)
+                loss_list.append(loss.item())
+                scores = torch.sigmoid(outputs).squeeze()
+
+                labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
+                scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
         return labels_list, scores_list, loss_list
 
     def train_cam(self, loader, pretrained_net, biased_classes_mapped):
@@ -510,8 +655,7 @@ class multilabel_classifier():
 
         return labels_list, scores_list, loss_list
 
-
-    def train_featuresplit(self, loader, biased_classes_mapped, weight, xs_prev_ten):
+    def train_featuresplit(self, loader, biased_classes_mapped, weight, xs_prev_ten, split=1024):
         """Train the 'feature-splitting' model for one epoch"""
 
         self.model = self.model.to(device=self.device, dtype=self.dtype)
@@ -544,7 +688,7 @@ class multilabel_classifier():
                 self.optimizer.step()
 
                 # Keep track of xs
-                xs_prev_ten.append(x_non[:, 1024:].detach())
+                xs_prev_ten.append(x_non[:, split:].detach())
                 if len(xs_prev_ten) > 10:
                     xs_prev_ten.pop(0)
 
@@ -560,7 +704,7 @@ class multilabel_classifier():
                 # Replace the second half of the features with xs_mean
                 if len(xs_prev_ten) > 0:
                     xs_mean = torch.cat(xs_prev_ten).mean(0)
-                    x_exc[:, 1024:] = xs_mean.detach()
+                    x_exc[:, split:] = xs_mean.detach()
 
                 # Get the loss
                 out_exc = x_exc
@@ -581,8 +725,8 @@ class multilabel_classifier():
 
                 # Zero out Ws gradients and make an update
                 b_list = [i in exclusive_classes for i in range(self.nclasses)]
-                self.model.resnet.fc.weight.grad[b_list, 1024:] = 0.
-                assert not (self.model.resnet.fc.weight.grad[b_list, 1024:] != 0.).sum() > 0
+                self.model.resnet.fc.weight.grad[b_list, split:] = 0.
+                assert not (self.model.resnet.fc.weight.grad[b_list, split:] != 0.).sum() > 0
                 self.optimizer.step()
 
                 l_exc = loss_exc.item()

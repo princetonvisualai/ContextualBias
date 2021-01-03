@@ -101,11 +101,11 @@ for k in range(len(biased_classes_list)):
         cooccur_AP = average_precision_score(labels_list[cooccur+other, arg['nclasses']+k-20],
             scores_list[cooccur+other, arg['nclasses']+k-20])
     else:
-        if arg['dataset'] =='DeepFashion':
+        if arg['dataset'] == 'DeepFashion':
             cooccur_AP = recall3(labels_list[cooccur+other, b], scores_list[cooccur+other], b)
         else:
             cooccur_AP = average_precision_score(labels_list[cooccur+other, b],scores_list[cooccur+other, b])
-    if arg['dataset'] =='DeepFashion':
+    if arg['dataset'] == 'DeepFashion':
         exclusive_AP = recall3(labels_list[exclusive+other, b], scores_list[exclusive+other], b)
     else:
         exclusive_AP = average_precision_score(labels_list[exclusive+other, b],scores_list[exclusive+other, b])
