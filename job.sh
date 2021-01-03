@@ -40,16 +40,16 @@ source /n/fs/context-scr/context/bin/activate # for RTX3090
 #  --lr 0.01 --wd 0.0001 --drop 10 \
 #  --test_batchsize 150 --train_batchsize 200 \
 #  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
-#  --labels_test /n/fs/context-scr/AwA/labels_val.pkl \
+#  --labels_test /n/fs/context-scr/AwA/labels_test.pkl \
 #  --outdir AwA/save/splitbiased2
 
 python train.py --dataset AwA --model attribdecorr --nepoch 20 --nclasses 85 \
-  --lr 0.001 --wd 0.0001 --drop 20 --compshare_lambda 10 \
+  --lr 0.001 --wd 0.0001 --drop 20 --compshare_lambda 0.1 \
   --test_batchsize 150 --train_batchsize 200 \
   --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
-  --labels_test /n/fs/context-scr/AwA/labels_val.pkl \
+  --labels_test /n/fs/context-scr/AwA/labels_test.pkl \
   --pretrainedpath AwA/save/baseline/model_19.pth \
-  --outdir AwA/save
+  --outdir AwA/save/attribdecorr2
 
 ### DeepFashion
 #python train.py --dataset DeepFashion --model baseline --nepoch 50 --nclasses 250 \
