@@ -57,7 +57,7 @@ class multilabel_classifier():
         if modelpath != None:
             A = torch.load(modelpath, map_location=device)
             load_state_dict = A['model']
-            load_prefix = list(load_state_dict.keys())[0][:7]
+            load_prefix = list(load_state_dict.keys())[0][:6]
             new_state_dict = {}
             for key in load_state_dict:
                 value = load_state_dict[key]
