@@ -52,7 +52,7 @@ class multilabel_classifier():
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=weight_decay)
         self.epoch = 0
-        self.print_freq = 10
+        self.print_freq = 100
 
         if modelpath != None:
             A = torch.load(modelpath, map_location=device)
@@ -62,7 +62,7 @@ class multilabel_classifier():
             for key in load_state_dict:
                 value = load_state_dict[key]
                 if torch.cuda.device_count() > 1:
-                    if load_prefix != 'module': 
+                    if load_prefix != 'module':
                         new_key = 'module.' + key
                         new_state_dict[new_key] = value
                 else:
@@ -114,7 +114,6 @@ class multilabel_classifier():
 
             labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
             scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            ids_list = []
             loss_list = []
 
             for i, (images, labels, ids) in enumerate(loader):
@@ -184,7 +183,6 @@ class multilabel_classifier():
 
             labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
             scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            ids_list = []
             loss_list = []
 
             for i, (images, labels, ids) in enumerate(loader):
@@ -264,7 +262,6 @@ class multilabel_classifier():
 
             labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
             scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            ids_list = []
             loss_list = []
 
             for i, (images, labels, ids) in enumerate(loader):
@@ -332,7 +329,7 @@ class multilabel_classifier():
 
         self.epoch += 1
         return loss_list
- 
+
     def test_weighted(self, loader, biased_classes_mapped, weight=10):
         """Evaluate the 'strong baseline - weighted loss' model"""
 
@@ -343,7 +340,6 @@ class multilabel_classifier():
 
             labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
             scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            ids_list = []
             loss_list = []
 
             for i, (images, labels, ids) in enumerate(loader):
@@ -370,19 +366,19 @@ class multilabel_classifier():
                 scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
 
         return labels_list, scores_list, loss_list
-    
+
     def train_attribdecorr(self, loader, pretrained_net, biased_classes_mapped, humanlabels_to_onehot, pretrained_features, compshare_lambda=0.1):
         # Define semantic groups according to http://vision.cs.utexas.edu/projects/resistshare/
         semantic_attributes = [
             ['patches', 'spots', 'stripes', 'furry', 'hairless', 'toughskin'],
             ['fierce', 'timid', 'smart', 'group', 'solitary', 'nestspot', 'domestic'],
             ['black', 'white', 'blue', 'brown', 'gray', 'orange', 'red', 'yellow'],
-            ['flippers', 'hands', 'hooves', 'pads', 'paws', 'longleg', 'longneck', 'tail', 
+            ['flippers', 'hands', 'hooves', 'pads', 'paws', 'longleg', 'longneck', 'tail',
              'chewteeth', 'meatteeth', 'buckteeth', 'strainteeth', 'horns', 'claws',
              'tusks', 'bipedal', 'quadrapedal'],
-            ['flys', 'hops', 'swims', 'tunnels', 'walks', 'fast', 'slow', 'strong', 
+            ['flys', 'hops', 'swims', 'tunnels', 'walks', 'fast', 'slow', 'strong',
              'weak', 'muscle'],
-            ['fish', 'meat', 'plankton', 'vegetation', 'insects', 'forager', 'grazer', 
+            ['fish', 'meat', 'plankton', 'vegetation', 'insects', 'forager', 'grazer',
              'hunter', 'scavenger', 'skimmer', 'stalker'],
             ['coastal', 'desert', 'bush', 'plains', 'forest', 'fields', 'jungle', 'mountains',
              'ocean', 'ground', 'water', 'tree', 'cave'],
@@ -393,15 +389,15 @@ class multilabel_classifier():
         for group in semantic_attributes:
             idxs = [humanlabels_to_onehot[attribute] for attribute in group]
             semantic_attributes_idxs.append(idxs)
-        
+
         pretrained_net.model.to(device=self.device, dtype=self.dtype)
         pretrained_net.model.eval()
         self.model.train()
- 
+
         loss_list = []
         for i, (images, labels, ids) in enumerate(loader):
             images = images.to(device=self.device, dtype=self.dtype)
-            labels = labels.to(device=self.device, dtype=self.dtype) 
+            labels = labels.to(device=self.device, dtype=self.dtype)
 
             # Get output scores by substituting the last fully connected layer with W
             self.optimizer.zero_grad()
@@ -409,13 +405,13 @@ class multilabel_classifier():
             W = self.model.state_dict()[W_key]
             pretrained_features.clear()
             pretrained_net.model.forward(images)
-          
+
             conv_outputs = [x.to(device=self.device, dtype=self.dtype) for x in pretrained_features]
             conv_outputs = torch.cat(conv_outputs, dim=0).to(device=self.device, dtype=self.dtype)
             outputs = self.model.forward(conv_outputs)
             criterion = torch.nn.BCEWithLogitsLoss()
             regression_loss = criterion(outputs, labels)
-            
+
             # Compute competition-sharing loss
             delta = 0
             for d in range(self.hidden_size):
@@ -423,7 +419,7 @@ class multilabel_classifier():
                     Sg = torch.LongTensor(semantic_attributes_idxs[g])
                     w_dSg = W[Sg, d]
                     delta += torch.linalg.norm(w_dSg)
- 
+
             compshare_loss = 0
             for d in range(self.hidden_size):
                 for g in range(len(semantic_attributes_idxs)):
@@ -435,7 +431,7 @@ class multilabel_classifier():
             loss = regression_loss + compshare_lambda * compshare_loss
             loss.backward()
             self.optimizer.step()
-            
+
             loss_list.append(loss.item())
             if self.print_freq and (i % self.print_freq == 0):
                 print('Training step {} [{}|{}] loss: {}'.format(self.epoch, i+1, len(loader), loss.item()), flush=True)
@@ -444,7 +440,7 @@ class multilabel_classifier():
         return loss_list
 
     def test_attribdecorr(self, loader, pretrained_net, biased_classes_mapped, pretrained_features, compshare_lambda=0.01):
-        
+
         pretrained_net.model.to(device=self.device, dtype=self.dtype)
         pretrained_net.model.eval()
         self.model.eval()
@@ -452,19 +448,18 @@ class multilabel_classifier():
         with torch.no_grad():
             labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
             scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            ids_list = []
             loss_list = []
 
             for i, (images, labels, ids) in enumerate(loader):
                 images = images.to(device=self.device, dtype=self.dtype)
                 labels = labels.to(device=self.device, dtype=self.dtype)
-                
+
                 # Get output scores by substituting the last fully connected layer with W
                 W_key = list(self.model.state_dict().keys())[0]
                 W = self.model.state_dict()[W_key]
                 pretrained_features.clear()
                 pretrained_net.model.forward(images)
-          
+
                 # Center crop
                 conv_outputs = [x.to(device=self.device, dtype=self.dtype) for x in pretrained_features]
                 conv_outputs = torch.cat(conv_outputs, dim=0).to(device=self.device, dtype=self.dtype)
@@ -741,3 +736,103 @@ class multilabel_classifier():
         self.epoch += 1
 
         return loss_list, xs_prev_ten
+
+    def train_fs_weighted(self, loader, biased_classes_mapped, weight):
+        """Train the 'non-feature-split weighted loss' model for one epoch"""
+
+        self.model = self.model.to(device=self.device, dtype=self.dtype)
+        self.model.train()
+
+        loss_list = []
+        for i, (images, labels, ids) in enumerate(loader):
+            images  = images.to(device=self.device, dtype=self.dtype)
+            labels = labels.to(device=self.device, dtype=self.dtype)
+
+            # Identify exclusive instances
+            exclusive = torch.zeros((labels.shape[0]), dtype=bool)
+            exclusive_list = [] # Image indices with exclusives
+            exclusive_classes = [] # (b, c) pair for the above images
+            for m in range(labels.shape[0]):
+                for b in biased_classes_mapped.keys():
+                    c = biased_classes_mapped[b]
+                    if (labels[m,b]==1) & (labels[m,c]==0):
+                        exclusive[m] = True
+                        exclusive_list.append(m)
+                        exclusive_classes.append(b)
+
+            self.optimizer.zero_grad()
+            outputs = self.forward(images)
+            criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
+            loss_tensor = criterion(outputs.squeeze(), labels)
+
+            # Create a loss weight tensor
+            weight_tensor = torch.ones_like(outputs)
+            exclusive_unique_list = sorted(list(set(exclusive_list)))
+            for k in range(len(exclusive_list)):
+                m = exclusive_unique_list.index(exclusive_list[k])
+                b = exclusive_classes[k]
+                weight_tensor[m, b] = weight[b]
+
+            # Calculate and make updates with the weighted loss
+            loss = (weight_tensor * loss_tensor).mean()
+            loss.backward()
+            self.optimizer.step()
+
+            loss_list.append(loss.item())
+            if self.print_freq and (i % self.print_freq == 0):
+                print('Training epoch {} [{}|{}] loss: {}'.format(self.epoch, i+1, len(loader), loss.item()), flush=True)
+
+        self.epoch += 1
+
+        return loss_list
+
+    def test_fs_weighted(self, loader, biased_classes_mapped, weight):
+        """Test the 'non-feature-split weighted loss' model for one epoch"""
+
+        self.model = self.model.to(device=self.device, dtype=self.dtype)
+        self.model.eval()
+
+        with torch.no_grad():
+
+            labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            loss_list = []
+
+            for i, (images, labels, ids) in enumerate(loader):
+                images  = images.to(device=self.device, dtype=self.dtype)
+                labels = labels.to(device=self.device, dtype=self.dtype)
+
+                # Identify exclusive instances
+                exclusive = torch.zeros((labels.shape[0]), dtype=bool)
+                exclusive_list = [] # Image indices with exclusives
+                exclusive_classes = [] # (b, c) pair for the above images
+                for m in range(labels.shape[0]):
+                    for b in biased_classes_mapped.keys():
+                        c = biased_classes_mapped[b]
+                        if (labels[m,b]==1) & (labels[m,c]==0):
+                            exclusive[m] = True
+                            exclusive_list.append(m)
+                            exclusive_classes.append(b)
+
+                self.optimizer.zero_grad()
+                outputs = self.forward(images)
+                criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
+                loss_tensor = criterion(outputs.squeeze(), labels)
+
+                # Create a loss weight tensor
+                weight_tensor = torch.ones_like(outputs)
+                exclusive_unique_list = sorted(list(set(exclusive_list)))
+                for k in range(len(exclusive_list)):
+                    m = exclusive_unique_list.index(exclusive_list[k])
+                    b = exclusive_classes[k]
+                    weight_tensor[m, b] = weight[b]
+
+                # Calculate and make updates with the weighted loss
+                loss = (weight_tensor * loss_tensor).mean()
+                loss_list.append(loss.item())
+                scores = torch.sigmoid(outputs).squeeze()
+
+                labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
+                scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
+
+        return labels_list, scores_list, loss_list
