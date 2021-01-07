@@ -57,12 +57,6 @@ class multilabel_classifier():
 
         if modelpath != None:
             A = torch.load(modelpath, map_location=device)
-            self.model.load_state_dict(A['model'])
-            self.epoch = A['epoch']
-
-        #if modelpath != None:
-        if False:
-            A = torch.load(modelpath, map_location=device)
             load_state_dict = A['model']
             load_prefix = list(load_state_dict.keys())[0][:6]
             new_state_dict = {}
@@ -70,7 +64,7 @@ class multilabel_classifier():
                 value = load_state_dict[key]
                 # Multi-GPU state dict has the prefix 'module.' appended in front of each key
                 if torch.cuda.device_count() > 1:
-                    if load_prefix != 'module':
+                    if load_prefix != 'module': 
                         new_key = 'module.' + key
                         new_state_dict[new_key] = value
                     else:
