@@ -174,12 +174,12 @@ def main():
         if arg['model'] == 'attribdecorr':
             labels_list, scores_list, val_loss_list = classifier.test_attribdecorr(valset, pretrained_net, biased_classes_mapped, pretrained_features)
         if arg['model'] == 'fs_weighted':
-            labels_list, scores_list, test_loss_list = classifier.test_fs_weighted(testset, biased_classes_mapped, weight)
+            labels_list, scores_list, val_loss_list = classifier.test_fs_weighted(valset, biased_classes_mapped, weight)
 
         # Record train/val loss
         tb.add_scalar('Loss/Train', np.mean(train_loss_list), i)
         tb.add_scalar('Loss/Val', np.mean(val_loss_list), i)
-        loss_epoch_list.append(np.mean(test_loss_list))
+        loss_epoch_list.append(np.mean(val_loss_list))
 
         # Calculate and record mAP
         APs = []
