@@ -88,7 +88,7 @@ def main():
 
     # Hook feature extractor if necessary
     if arg['model'] == 'attribdecorr':
-        print('Registering pretrained features hook')
+        print('Registering pretrained features hook for attribute decorrelation training')
         pretrained_features = []
         def hook_pretrained_features(module, input, output):
             pretrained_features.append(output.squeeze())
@@ -96,6 +96,20 @@ def main():
             pretrained_net.model._modules['module'].resnet.avgpool.register_forward_hook(hook_pretrained_features)
         else:
             pretrained_net.model._modules['resnet'].avgpool.register_forward_hook(hook_pretrained_features)
+    if arg['model'] == 'cam':
+        print('Registering conv feature hooks for CAM training')
+        classifier_features = []
+        pretrained_features = []
+        def hook_classifier_features(module, input, output):
+            classifier_features.append(output)
+        def hook_pretrained_features(module, input, output):
+            pretrained_features.append(output)
+        if torch.cuda.device_count() > 1:
+            classifier.model._modules['module'].resnet.layer4.register_forward_hook(hook_classifier_features)
+            pretrained_net.model._modules['module'].resnet.layer4.register_forward_hook(hook_pretrained_features)
+        else:
+            classifier.model._modules['resnet'].layer4.register_forward_hook(hook_classifier_features)
+            pretrained_net.model._modules['resnet'].layer4.register_forward_hook(hook_pretrained_features)
 
     # Start training
     tb = SummaryWriter(log_dir='{}/runs'.format(arg['outdir']))
@@ -127,7 +141,7 @@ def main():
             train_loss_list = classifier.train_attribdecorr(trainset, pretrained_net, biased_classes_mapped, 
                                                             humanlabels_to_onehot, pretrained_features)
         if arg['model'] == 'cam':
-            train_loss_list = classifier.train_cam(trainset, pretrained_net, biased_classes_mapped)
+            train_loss_list = classifier.train_cam(trainset, pretrained_net, biased_classes_mapped, pretrained_features, classifier_features)
         if arg['model'] == 'featuresplit':
             if i == 0: xs_prev_ten = []
             train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped, 
