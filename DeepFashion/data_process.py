@@ -84,29 +84,27 @@ with open('humanlabels_to_onehot.pkl', 'wb+') as handle:
     pickle.dump(humanlabels_to_onehot_250, handle)
 print('Saved top 250 train labels in humanlabels_to_onehot.pkl')
 
-# Process DeepFashion validation set labels:
+# Process DeepFashion validation set labels
 if True:
     count = 0
     labels = {}
     for file in val:
         label_onehot_1000 = img_to_label[file]
-        label_onehot_250 = [label_onehot_1000[i] for i in top_250]
-        label_onehot_250 = torch.LongTensor(label_onehot_250).float()
-        labels[file] = label_onehot_250 # Save the one-hot encoded label        
+        label_onehot_250 = label_onehot_1000[top_250]
+        labels[file] = label_onehot_250 # Save the one-hot encoded label
         count += 1
 
     print('Finished processing {} val labels'.format(len(labels)))
     with open('labels_val.pkl', 'wb+') as handle:
        pickle.dump(labels, handle)
 
-# Process DeepFashion train set labels:
-if True:  
+# Process DeepFashion train set labels
+if True: 
     count = 0
     labels = {} 
     for file in train:
         label_onehot_1000 = img_to_label[file]
-        label_onehot_250 = [label_onehot_1000[i] for i in top_250]
-        label_onehot_250 = torch.LongTensor(label_onehot_250).float()
+        label_onehot_250 = label_onehot_1000[top_250]
         labels[file] = label_onehot_250 # Save the one-hot encoded label        
         count += 1
 
@@ -114,13 +112,13 @@ if True:
     with open('labels_train.pkl', 'wb+') as handle:
         pickle.dump(labels, handle)
 
- if True:
+# Process DeepFashion test set labels
+if True:
     count = 0
     labels = {}
     for file in test:
         label_onehot_1000 = img_to_label[file]
-        label_onehot_250 = [label_onehot_1000[i] for i in top_250]
-        label_onehot_250 = torch.LongTensor(label_onehot_250).float()
+        label_onehot_250 = label_onehot_1000[top_250]
         labels[file] = label_onehot_250 # Save the one-hot encoded label                                                                                       
         count += 1
 
