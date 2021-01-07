@@ -16,24 +16,25 @@ parser.add_argument('--labels', type=str, default='/n/fs/context-scr/COCOStuff/l
 parser.add_argument('--batchsize', type=int, default=170)
 parser.add_argument('--nclasses', type=int, default=171)
 parser.add_argument('--hs', type=int, default=2048)
-parser.add_argument('--splitbiased', type=bool, default=False)
 parser.add_argument('--device', default=torch.device('cuda'))
 parser.add_argument('--dtype', default=torch.float32)
 arg = vars(parser.parse_args())
-if arg['splitbiased']:
+splitbiased = False
+if arg['model'] == 'splitbiased':
     arg['nclasses'] = arg['nclasses'] + 20
+    splitbiased = True
 print('\n', arg, '\n')
 
 # Load utility files
 biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
-#biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+
 if arg['dataset'] == 'COCOStuff':
     unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
 humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
 onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
 # Create dataloader
-testset = create_dataset(arg['dataset'], arg['labels'], biased_classes_mapped, B=arg['batchsize'], train=False, splitbiased=arg['splitbiased'])
+testset = create_dataset(arg['dataset'], arg['labels'], biased_classes_mapped, B=arg['batchsize'], train=False, splitbiased=splitbiased)
 
 # Load model
 classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'], hidden_size=arg['hs'])
@@ -88,7 +89,7 @@ for k in range(len(biased_classes_list)):
     c = biased_classes_mapped[b]
 
     # Categorize the images into co-occur/exclusive/other
-    if arg['splitbiased']:
+    if splitbiased:
         cooccur = (labels_list[:,arg['nclasses']+k-20]==1)
         print(len(np.where(cooccur==True)[0]))
         exclusive = (labels_list[:,b]==1)
