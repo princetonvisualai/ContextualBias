@@ -32,7 +32,7 @@ class multilabel_classifier():
         self.hidden_size = hidden_size
         self.device = device
         self.dtype = dtype
-
+            
         # For attribute decorrelation baseline, we train a linear classifier on top of pretrained deep features
         if attribdecorr:
             params = OrderedDict([
@@ -45,12 +45,13 @@ class multilabel_classifier():
         else:
             self.model = ResNet50(n_classes=nclasses, hidden_size=hidden_size, pretrained=True)
             self.model.require_all_grads()
-
+        
         # Multi-GPU training
         if torch.cuda.device_count() > 1:
             self.model = nn.DataParallel(self.model)
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=weight_decay)
+
         self.epoch = 0
         self.print_freq = 10
 
@@ -61,10 +62,13 @@ class multilabel_classifier():
             new_state_dict = {}
             for key in load_state_dict:
                 value = load_state_dict[key]
+                # Multi-GPU state dict has the prefix 'module.' appended in front of each key
                 if torch.cuda.device_count() > 1:
                     if load_prefix != 'module': 
                         new_key = 'module.' + key
                         new_state_dict[new_key] = value
+                    else:
+                        new_state_dict[key] = value
                 else:
                     if load_prefix == 'module':
                         new_key = key[7:]
@@ -73,7 +77,7 @@ class multilabel_classifier():
                         new_state_dict[key] = value
             self.model.load_state_dict(new_state_dict)
             self.epoch = A['epoch']
-
+        
     def forward(self, x):
         outputs = self.model(x)
         return outputs
