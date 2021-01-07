@@ -108,9 +108,11 @@ for k in range(len(biased_classes_list)):
     other = (~exclusive) & (~cooccur)
 
     # Calculate AP for co-occur/exclusive sets
-    if arg['splitbiased']:
-        cooccur_AP = average_precision_score(labels_list[cooccur+other, arg['nclasses']+k-20],
-            scores_list[cooccur+other, arg['nclasses']+k-20])
+    if splitbiased:
+        if arg['dataset'] == 'DeepFashion':
+            cooccur_AP = recall3(labels_list[cooccur+other, arg['nclasses']+k-20],scores_list[cooccur+other], arg['nclasses']+k-20)
+        else:
+            cooccur_AP = average_precision_score(labels_list[cooccur+other, arg['nclasses']+k-20],scores_list[cooccur+other, arg['nclasses']+k-20])
     else:
         if arg['dataset'] == 'DeepFashion':
             cooccur_AP = recall3(labels_list[cooccur+other, b], scores_list[cooccur+other], b)
