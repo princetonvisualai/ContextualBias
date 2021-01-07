@@ -7,6 +7,7 @@ from sklearn.metrics import average_precision_score
 
 from classifier import multilabel_classifier
 from load_data import *
+from evaluate import recall3
 
 def main():
     parser = argparse.ArgumentParser()
@@ -171,9 +172,17 @@ def main():
         # Calculate and record mAP
         APs = []
         for k in range(arg['nclasses']):
-            APs.append(average_precision_score(labels_list[:,k], scores_list[:,k]))
+            if arg['dataset'] == 'DeepFashion':
+                recall = recall3(labels_list[:,k], scores_list, k)
+                APs.append(recall)
+            else:
+                APs.append(average_precision_score(labels_list[:,k], scores_list[:,k]))
         mAP = np.nanmean(APs)
-        tb.add_scalar('mAP/all', mAP*100, i)
+        if arg['dataset'] == 'DeepFashion':
+            tb.add_scalar('Mean Recall@3/all', mAP*100, i)
+        else:
+            tb.add_scalar('mAP/all', mAP*100, i)
+
         all_list.append(mAP*100)
         if arg['dataset'] == 'COCOStuff':
             mAP_unbiased = np.nanmean([APs[i] for i in unbiased_classes_mapped])
@@ -199,13 +208,19 @@ def main():
 
             # Calculate AP for co-occur/exclusive sets
             if splitbiased:
-                cooccur_AP = average_precision_score(labels_list[cooccur+other, arg['nclasses']+k-20],
-                    scores_list[cooccur+other, arg['nclasses']+k-20])
+                if arg['dataset'] == 'DeepFashion':
+                    cooccur_AP = recall3(labels_list[cooccur+other, arg['nclasses']+k-20], scores_list[cooccur+other], arg['nclasses']+k-20)
+                else:
+                    cooccur_AP = average_precision_score(labels_list[cooccur+other, arg['nclasses']+k-20], scores_list[cooccur+other, arg['nclasses']+k-20])
             else:
-                cooccur_AP = average_precision_score(labels_list[cooccur+other, b],
-                    scores_list[cooccur+other, b])
-            exclusive_AP = average_precision_score(labels_list[exclusive+other ,b],
-                scores_list[exclusive+other, b])
+                if arg['dataset'] == 'DeepFashion':
+                    cooccur_AP = recall3(labels_list[cooccur+other, b], scores_list[cooccur+other], b)
+                else:
+                    cooccur_AP = average_precision_score(labels_list[cooccur+other, b], scores_list[cooccur+other, b])
+            if arg['dataset'] == 'DeepFashion':
+                exclusive_AP = recall3(labels_list[exclusive+other, b], scores_list[exclusive+other], b)
+            else:
+                exclusive_AP = average_precision_score(labels_list[exclusive+other ,b],scores_list[exclusive+other, b])
             cooccur_AP_dict[b] = cooccur_AP
             exclusive_AP_dict[b] = exclusive_AP
 
@@ -214,8 +229,12 @@ def main():
             tb.add_scalar('{}/exclusive'.format(onehot_to_humanlabels[b]), exclusive_AP_dict[b]*100, i)
 
         # Record mean co-occur/exclusive AP
-        tb.add_scalar('mAP/co-occur', np.mean(list(cooccur_AP_dict.values()))*100, i)
-        tb.add_scalar('mAP/exclusive', np.mean(list(exclusive_AP_dict.values()))*100, i)
+        if arg['dataset'] == 'DeepFashion':
+             tb.add_scalar('mean Recall@3/co-occur', np.mean(list(cooccur_AP_dict.values()))*100, i)
+             tb.add_scalar('mean Recall@3/exclusive', np.mean(list(exclusive_AP_dict.values()))*100, i)
+        else:
+            tb.add_scalar('mAP/co-occur', np.mean(list(cooccur_AP_dict.values()))*100, i)
+            tb.add_scalar('mAP/exclusive', np.mean(list(exclusive_AP_dict.values()))*100, i)
         cooccur_list.append(np.mean(list(cooccur_AP_dict.values()))*100)
         exclusive_list.append(np.mean(list(exclusive_AP_dict.values()))*100)
 
