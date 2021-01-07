@@ -728,8 +728,12 @@ class multilabel_classifier():
 
                 # Zero out Ws gradients and make an update
                 b_list = [i in exclusive_classes for i in range(self.nclasses)]
-                self.model.resnet.fc.weight.grad[b_list, split:] = 0.
-                assert not (self.model.resnet.fc.weight.grad[b_list, split:] != 0.).sum() > 0
+                if torch.cuda.device_count() > 1:
+                    self.model._modules['module'].resnet.fc.weight.grad[b_list, split:] = 0.
+                    assert not (self.model._modules['module'].resnet.fc.weight.grad[b_list, split:] != 0.).sum() > 0
+                else:
+                    self.model.resnet.fc.weight.grad[b_list, split:] = 0.
+                    assert not (self.model.resnet.fc.weight.grad[b_list, split:] != 0.).sum() > 0
                 self.optimizer.step()
 
                 l_exc = loss_exc.item()
