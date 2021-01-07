@@ -14,7 +14,7 @@ def main():
     parser.add_argument('--model', type=str, default='baseline',
         choices=['baseline', 'cam', 'featuresplit', 'splitbiased', 'weighted',
         'removeclabels', 'removecimages', 'negativepenalty', 'classbalancing',
-        'attribdecorr', 'fs_weighted'])
+        'attribdecorr', 'fs_weighted', 'fs_noweighted'])
     parser.add_argument('--nepoch', type=int, default=100)
     parser.add_argument('--train_batchsize', type=int, default=200)
     parser.add_argument('--test_batchsize', type=int, default=170)
@@ -34,8 +34,6 @@ def main():
 
     arg = vars(parser.parse_args())
     arg['outdir'] = '{}/{}'.format(arg['outdir'], arg['model'])
-    if arg['model'] == 'splitbiased':
-        arg['nclasses'] = arg['nclasses'] + 20
     print('\n', arg, '\n')
     print('\nTraining with {} GPUs'.format(torch.cuda.device_count()))
 
@@ -68,7 +66,7 @@ def main():
                                        attribdecorr=(arg['model']=='attribdecorr'), compshare_lambda=arg['compshare_lambda'])
     classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=0.9, weight_decay=arg['wd'])
 
-    if arg['model'] in ['cam', 'featuresplit']:
+    if arg['model'] != 'baseline':
         classifier.epoch = 0 # Reset epoch for stage 2 training
     if arg['model'] == 'cam':
         pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
@@ -76,6 +74,10 @@ def main():
         pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'],
                                                momentum=0.9, weight_decay=arg['wd'])
+    if arg['model'] == 'splitbiased':
+        arg['nclasses'] = arg['nclasses'] + 20
+        classifier.model.resnet.fc = torch.nn.Linear(arg['hs'], arg['nclasses'])
+        classifier.nclasses = arg['nclasses']
 
     # Calculate loss weights for the class-balancing and feature-splitting methods
     if arg['model'] == 'classbalancing':
@@ -111,7 +113,7 @@ def main():
                 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
                                                        momentum=0.9, weight_decay=arg['wd'])
             if i == arg['drop'] and arg['dataset'] == 'AwA':
-                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
+                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.001,
                                                        momentum=0.9, weight_decay=arg['wd'])
             if i == arg['drop'] and arg['dataset'] == 'DeepFashion':
                 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
@@ -136,13 +138,18 @@ def main():
                                                                          weight, xs_prev_ten, split=1024)
         if arg['model'] == 'fs_weighted':
             train_loss_list = classifier.train_fs_weighted(trainset, biased_classes_mapped, weight)
+        if arg['model'] == 'fs_noweighted':
+            if i == 0: xs_prev_ten = []
+            train_loss_list, xs_prev_ten = classifier.train_fs_noweighted(trainset, biased_classes_mapped, 
+                                                                        None, xs_prev_ten, split=1024)
+
 
         # Save the model
         if (i + 1) % 1 == 0:
             classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], i))
 
         # Do inference with the model
-        if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit']:
+        if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit', 'fs_noweighted']:
             labels_list, scores_list, test_loss_list = classifier.test(testset)
         if arg['model'] == 'negativepenalty':
             labels_list, scores_list, test_loss_list = classifier.test_negativepenalty(testset, biased_classes_mapped, penalty=10)
