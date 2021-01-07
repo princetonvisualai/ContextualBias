@@ -17,18 +17,19 @@ def main():
         'attribdecorr'])
     parser.add_argument('--nepoch', type=int, default=100)
     parser.add_argument('--train_batchsize', type=int, default=200)
-    parser.add_argument('--test_batchsize', type=int, default=170)
+    parser.add_argument('--val_batchsize', type=int, default=170)
     parser.add_argument('--lr', type=float, default=0.1)
     parser.add_argument('--drop', type=int, default=60)
     parser.add_argument('--wd', type=float, default=0.0)
     parser.add_argument('--hs', type=int, default=2048)
-    parser.add_argument('--compshare_lambda', type=float, default=0.1)
+    parser.add_argument('--split', type=int, default=1024)
+    parser.add_argument('--compshare_lambda', type=float, default=5.0)
     parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--modelpath', type=str, default=None)
     parser.add_argument('--pretrainedpath', type=str)
     parser.add_argument('--outdir', type=str, default='/n/fs/context-scr/COCOStuff/save')
     parser.add_argument('--labels_train', type=str, default='/n/fs/context-scr/COCOStuff/labels_train.pkl')
-    parser.add_argument('--labels_test', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
+    parser.add_argument('--labels_val', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
     parser.add_argument('--device', default=torch.device('cuda'))
     parser.add_argument('--dtype', default=torch.float32)
 
@@ -58,8 +59,8 @@ def main():
                               B=arg['train_batchsize'], train=True, 
                               removeclabels=removeclabels, removecimages=removecimages, 
                               splitbiased=splitbiased)
-    testset = create_dataset(arg['dataset'], arg['labels_test'], biased_classes_mapped, 
-                             B=arg['test_batchsize'], train=False, 
+    valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped, 
+                             B=arg['val_batchsize'], train=False, 
                              splitbiased=splitbiased)
 
     # Initialize classifier
@@ -108,7 +109,7 @@ def main():
                 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, 
                                                        momentum=0.9, weight_decay=arg['wd'])
             if i == arg['drop'] and arg['dataset'] == 'AwA':
-                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.001, 
+                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, 
                                                        momentum=0.9, weight_decay=arg['wd'])
             if i == arg['drop'] and arg['dataset'] == 'DeepFashion':
                 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, 
@@ -130,32 +131,32 @@ def main():
         if arg['model'] == 'featuresplit':
             if i == 0: xs_prev_ten = []
             train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped, 
-                                                                         weight, xs_prev_ten, split=1024)
+                                                                         weight, xs_prev_ten, split=arg['split'])
 
         # Save the model
-        if (i + 1) % 5 == 0:
-            classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], i))
+        if (i + 1) % 1 == 0:
+            classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], classifier.epoch))
 
         # Do inference with the model
         if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit']:
-            labels_list, scores_list, test_loss_list = classifier.test(testset)
+            labels_list, scores_list, val_loss_list = classifier.test(valset)
         elif arg['model'] == 'negativepenalty':
-            labels_list, scores_list, test_loss_list = classifier.test_negativepenalty(testset, biased_classes_mapped, penalty=10)
+            labels_list, scores_list, val_loss_list = classifier.test_negativepenalty(valset, biased_classes_mapped, penalty=10)
         elif arg['model'] == 'classbalancing':
-            labels_list, scores_list, test_loss_list = classifier.test_classbalancing(testset, biased_classes_mapped, weight)
+            labels_list, scores_list, val_loss_list = classifier.test_classbalancing(valset, biased_classes_mapped, weight)
         elif arg['model'] == 'weighted':
-            labels_list, scores_list, test_loss_list = classifier.test_weighted(testset, biased_classes_mapped, weight=10)
+            labels_list, scores_list, val_loss_list = classifier.test_weighted(valset, biased_classes_mapped, weight=10)
         elif arg['model'] == 'attribdecorr':
-            labels_list, scores_list, test_loss_list = classifier.test_attribdecorr(testset, pretrained_net, biased_classes_mapped, pretrained_features)
+            labels_list, scores_list, val_loss_list = classifier.test_attribdecorr(valset, pretrained_net, biased_classes_mapped, pretrained_features)
         else:
             print('Unknown model type: {}'.format(arg['model']))
             labels_list = None
             scores_list = None
-            test_loss_list = None
+            val_loss_list = None
 
         # Record train/val loss
         tb.add_scalar('Loss/Train', np.mean(train_loss_list), i)
-        tb.add_scalar('Loss/Test', np.mean(test_loss_list), i)
+        tb.add_scalar('Loss/Val', np.mean(val_loss_list), i)
 
         # Calculate and record mAP
         APs = []
@@ -206,12 +207,12 @@ def main():
 
         # Print out information
         print('\nEpoch: {}'.format(i))
-        print('Loss: train {:.5f}, val {:.5f}'.format(np.mean(train_loss_list), np.mean(test_loss_list)))
+        print('Loss: train {:.5f}, val {:.5f}'.format(np.mean(train_loss_list), np.mean(val_loss_list)))
         if arg['dataset'] == 'COCOStuff':
-            print('Test mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(arg['nclasses'], mAP*100, mAP_unbiased*100))
+            print('Val mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(arg['nclasses'], mAP*100, mAP_unbiased*100))
         else:
-            print('Test mAP: all {} {:.5f}'.format(arg['nclasses'], mAP*100))
-        print('Test mAP: co-occur {:.5f}, exclusive {:.5f}'.format(np.mean(list(cooccur_AP_dict.values()))*100, 
+            print('Val mAP: all {} {:.5f}'.format(arg['nclasses'], mAP*100))
+        print('Val mAP: co-occur {:.5f}, exclusive {:.5f}'.format(np.mean(list(cooccur_AP_dict.values()))*100, 
                                                                    np.mean(list(exclusive_AP_dict.values()))*100))
         print('Time passed so far: {:.2f} minutes\n'.format((time.time()-start_time)/60.))
 
