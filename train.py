@@ -7,7 +7,7 @@ from sklearn.metrics import average_precision_score
 
 from classifier import multilabel_classifier
 from load_data import *
-from evaluate import recall3
+from recall import recall3
 
 def main():
     parser = argparse.ArgumentParser()
