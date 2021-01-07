@@ -14,11 +14,11 @@ def recall3(labels_list, scores_list, k):
     num_imgs = np.sum(labels_list)
     image_scores = scores_list[labels_list.astype(bool)]
     
-    # Get top 3 labels (index) from images that contain label k       
+    # Get top 3 labels (index) from images that contain label k
     if len(image_scores.shape)==1:
         top3_labels = image_scores.argsort()[-3:]
     else:
-        top3_labels = image_scores.argsort()[:, -3:]
+        top3_labels = image_scores.argsort(axis=1)[:, -3:]
     num_intop3 = np.sum(top3_labels==k)
 
     # Recall@3 is num_intop3/num_imgs
@@ -30,6 +30,7 @@ def main():
     parser.add_argument('--dataset', type=str)
     parser.add_argument('--model', type=str, default='baseline')
     parser.add_argument('--modelpath', type=str, default=None)
+    parser.add_argument('--pretrainedpath', type=str, default=None)
     parser.add_argument('--labels', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
     parser.add_argument('--batchsize', type=int, default=170)
     parser.add_argument('--nclasses', type=int, default=171)
@@ -52,10 +53,21 @@ def main():
     testset = create_dataset(arg['dataset'], arg['labels'], biased_classes_mapped, B=arg['batchsize'], train=False, splitbiased=(arg['model']=='splitbiased'))
 
     # Load model
-    classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'], hidden_size=arg['hs'])
+    classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'], hidden_size=arg['hs'], attribdecorr=(arg['model']=='attribdecorr'))
 
     # Do inference with the model
     if arg['model'] == 'attribdecorr':
+        pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'], hidden_size=arg['hs'])
+
+        # Hook conv feature extractor
+        pretrained_features = []
+        def hook_pretrained_features(module, input, output):
+            pretrained_features.append(output.squeeze())
+        if torch.cuda.device_count() > 1:
+            pretrained_net.model._modules['module'].resnet.avgpool.register_forward_hook(hook_pretrained_features)
+        else:
+            pretrained_net.model._modules['resnet'].avgpool.register_forward_hook(hook_pretrained_features)
+
         labels_list, scores_list, test_loss_list = classifier.test_attribdecorr(testset, pretrained_net, biased_classes_mapped, pretrained_features)
     else:
         labels_list, scores_list, val_loss_list = classifier.test(testset)
@@ -89,7 +101,6 @@ def main():
         # Categorize the images into co-occur/exclusive/other
         if arg['model'] == 'splitbiased':
             cooccur = (labels_list[:,arg['nclasses']+k-20]==1)
-            print(len(np.where(cooccur==True)[0]))
             exclusive = (labels_list[:,b]==1)
         else:
             cooccur = (labels_list[:,b]==1) & (labels_list[:,c]==1)
