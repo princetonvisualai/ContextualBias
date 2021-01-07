@@ -20,9 +20,10 @@ print('\n', arg, '\n')
 
 # Load utility files
 humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/COCOStuff/humanlabels_to_onehot.pkl', 'rb'))
+biased_classes_mapped = pickle.load(open('/n/fs/context-scr/COCOStuff/biased_classes_mapped.pkl', 'rb'))
 
 # Create dataloader
-testset = create_dataset(None, arg['labels'], None, B=arg['batchsize'], train=False, splitbiased=splitbiased)
+testset = create_dataset(None, arg['labels'], biased_classes_mapped, B=arg['batchsize'], train=False, splitbiased=arg['splitbiased'])
 
 # Load model
 classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'], hidden_size=arg['hs'])
@@ -35,7 +36,7 @@ APs = []
 for category in ['car', 'bus', 'skateboard']:
     k = humanlabels_to_onehot[category]
 
-    if splitbiased:
+    if arg['splitbiased']:
 
         if k == 2: k_cooccur = 171 + 0
         if k == 5: k_cooccur = 171 + 1
@@ -43,7 +44,7 @@ for category in ['car', 'bus', 'skateboard']:
 
         # Identify co-occur, exclusive, other images
         cooccur = (labels_list[:,k_cooccur]==1)
-        exclusive = (labels_list[:,b]==1)
+        exclusive = (labels_list[:,k]==1)
         other = (~exclusive) & (~cooccur)
 
         # Concatenate labels and scores
