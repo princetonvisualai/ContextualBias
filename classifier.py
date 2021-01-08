@@ -32,7 +32,7 @@ class multilabel_classifier():
         self.hidden_size = hidden_size
         self.device = device
         self.dtype = dtype
-
+            
         # For attribute decorrelation baseline, we train a linear classifier on top of pretrained deep features
         if attribdecorr:
             params = OrderedDict([
@@ -45,39 +45,39 @@ class multilabel_classifier():
         else:
             self.model = ResNet50(n_classes=nclasses, hidden_size=hidden_size, pretrained=True)
             self.model.require_all_grads()
-
+        
         # Multi-GPU training
         if torch.cuda.device_count() > 1:
             self.model = nn.DataParallel(self.model)
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=weight_decay)
+
         self.epoch = 0
         self.print_freq = 100
 
         if modelpath != None:
             A = torch.load(modelpath, map_location=device)
-            self.model.load_state_dict(A['model'])
-            self.epoch = A['epoch']
-
-        #if modelpath != None:
-        if False:
-            A = torch.load(modelpath, map_location=device)
             load_state_dict = A['model']
-            load_prefix = list(load_state_dict.keys())[0][:7]
+            load_prefix = list(load_state_dict.keys())[0][:6]
             new_state_dict = {}
             for key in load_state_dict:
                 value = load_state_dict[key]
+                # Multi-GPU state dict has the prefix 'module.' appended in front of each key
                 if torch.cuda.device_count() > 1:
-                    if load_prefix != 'module':
+                    if load_prefix != 'module': 
                         new_key = 'module.' + key
                         new_state_dict[new_key] = value
+                    else:
+                        new_state_dict[key] = value
                 else:
                     if load_prefix == 'module':
                         new_key = key[7:]
                         new_state_dict[new_key] = value
+                    else:
+                        new_state_dict[key] = value
             self.model.load_state_dict(new_state_dict)
             self.epoch = A['epoch']
-
+        
     def forward(self, x):
         outputs = self.model(x)
         return outputs
@@ -485,7 +485,7 @@ class multilabel_classifier():
                 scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
         return labels_list, scores_list, loss_list
 
-    def train_cam(self, loader, pretrained_net, biased_classes_mapped):
+    def train_cam(self, loader, pretrained_net, biased_classes_mapped, pretrained_features, classifier_features):
         """Train the 'CAM-based' model for one epoch"""
 
         def returnCAM(feature_conv, weight_softmax, class_idx, device):
@@ -505,18 +505,8 @@ class multilabel_classifier():
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.model.train()
 
-        # Hook the feature extractor
-        Classifier_features = []
-        def hook_classifier_features(module, input, output):
-            Classifier_features.append(output)
-        self.model._modules['resnet'].layer4.register_forward_hook(hook_classifier_features)
-        Classifier_params = list(self.model.parameters())
-        Classifier_softmax_weight = Classifier_params[-2].squeeze(0)
-
-        pretrained_features = []
-        def hook_pretrained_feature(module, input, output):
-            pretrained_features.append(output)
-        pretrained_net.model._modules['resnet'].layer4.register_forward_hook(hook_pretrained_feature)
+        classifier_params = list(self.model.parameters())
+        classifier_softmax_weight = classifier_params[-2].squeeze(0)
         pretrained_params = list(pretrained_net.model.parameters())
         pretrained_softmax_weight = np.squeeze(pretrained_params[-2])
 
@@ -537,19 +527,31 @@ class multilabel_classifier():
                         cooccur_classes.append([b, c])
 
             # Get CAM from the current network
-            Classifier_features = []
-            outputs = self.forward(images) # where the length of Classifier_features increases
+            classifier_features.clear()
+            outputs = self.forward(images) # where the length of classifier_features increases
+
+            # In multi-GPU training, the hook outputs a list of outputs from each GPU, 
+            # so we need to recombine them
+            classifier_feature_outputs = [x.to(device=self.device, dtype=self.dtype) for x in classifier_features]
+            classifier_feature_outputs = torch.cat(classifier_feature_outputs, dim=0).to(device=self.device, dtype=self.dtype)
+
             CAMs = torch.Tensor(0, 2, 7, 7).to(device=self.device)
             for k in range(len(cooccur)):
-                CAM = returnCAM(Classifier_features[0][cooccur[k]].unsqueeze(0), Classifier_softmax_weight, cooccur_classes[k], self.device)
+                CAM = returnCAM(classifier_feature_outputs[cooccur[k]].unsqueeze(0), classifier_softmax_weight, cooccur_classes[k], self.device)
                 CAMs = torch.cat((CAMs, CAM.unsqueeze(0)), 0)
 
             # Get CAM from the pre-trained network
-            pretrained_features = []
+            pretrained_features.clear()
             _ = pretrained_net.model(images)
+
+            # In multi-GPU training, the hook outputs a list of outputs from each GPU,
+            # so we need to recombine them
+            pretrained_feature_outputs = [x.to(device=self.device, dtype=self.dtype) for x in pretrained_features]
+            pretrained_feature_outputs = torch.cat(pretrained_feature_outputs, dim=0).to(device=self.device, dtype=self.dtype)
+
             CAMs_pretrained = torch.Tensor(0, 2, 7, 7).to(self.device)
             for k in range(len(cooccur)):
-                CAM_pretrained = returnCAM(pretrained_features[0][cooccur[k]].unsqueeze(0), pretrained_softmax_weight, cooccur_classes[k], self.device)
+                CAM_pretrained = returnCAM(pretrained_feature_outputs[cooccur[k]].unsqueeze(0), pretrained_softmax_weight, cooccur_classes[k], self.device)
                 CAMs_pretrained = torch.cat((CAMs_pretrained, CAM_pretrained.unsqueeze(0)), 0)
 
             # Compute and update with the loss
@@ -591,12 +593,12 @@ class multilabel_classifier():
         self.model.eval()
 
         # Hook the feature extractor
-        Classifier_features = []
+        classifier_features = []
         def hook_classifier_features(module, input, output):
-            Classifier_features.append(output)
+            classifier_features.append(output)
         self.model._modules['resnet'].layer4.register_forward_hook(hook_classifier_features)
-        Classifier_params = list(self.model.parameters())
-        Classifier_softmax_weight = Classifier_params[-2].squeeze(0)
+        classifier_params = list(self.model.parameters())
+        classifier_softmax_weight = classifier_params[-2].squeeze(0)
 
         pretrained_features = []
         def hook_pretrained_feature(module, input, output):
@@ -626,11 +628,11 @@ class multilabel_classifier():
                             cooccur_classes.append([b, c])
 
                 # Get CAM from the current network
-                Classifier_features = []
+                classifier_features = []
                 outputs = self.forward(images)
                 CAMs = torch.Tensor(0, 2, 7, 7).to(device=self.device)
                 for k in range(len(cooccur)):
-                    CAM = returnCAM(Classifier_features[0][cooccur[k]].unsqueeze(0), Classifier_softmax_weight, cooccur_classes[k], self.device)
+                    CAM = returnCAM(classifier_features[0][cooccur[k]].unsqueeze(0), classifier_softmax_weight, cooccur_classes[k], self.device)
                     CAMs = torch.cat((CAMs, CAM.unsqueeze(0)), 0)
 
                 # Get CAM from the pre-trained network
@@ -726,8 +728,12 @@ class multilabel_classifier():
 
                 # Zero out Ws gradients and make an update
                 b_list = [i in exclusive_classes for i in range(self.nclasses)]
-                self.model.resnet.fc.weight.grad[b_list, split:] = 0.
-                assert not (self.model.resnet.fc.weight.grad[b_list, split:] != 0.).sum() > 0
+                if torch.cuda.device_count() > 1:
+                    self.model._modules['module'].resnet.fc.weight.grad[b_list, split:] = 0.
+                    assert not (self.model._modules['module'].resnet.fc.weight.grad[b_list, split:] != 0.).sum() > 0
+                else:
+                    self.model.resnet.fc.weight.grad[b_list, split:] = 0.
+                    assert not (self.model.resnet.fc.weight.grad[b_list, split:] != 0.).sum() > 0
                 self.optimizer.step()
 
                 l_exc = loss_exc.item()

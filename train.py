@@ -18,18 +18,19 @@ def main():
         'attribdecorr', 'fs_weighted', 'fs_noweighted'])
     parser.add_argument('--nepoch', type=int, default=100)
     parser.add_argument('--train_batchsize', type=int, default=200)
-    parser.add_argument('--test_batchsize', type=int, default=170)
+    parser.add_argument('--val_batchsize', type=int, default=170)
     parser.add_argument('--lr', type=float, default=0.1)
     parser.add_argument('--drop', type=int, default=60)
     parser.add_argument('--wd', type=float, default=0.0)
     parser.add_argument('--hs', type=int, default=2048)
-    parser.add_argument('--compshare_lambda', type=float, default=0.1)
+    parser.add_argument('--split', type=int, default=1024)
+    parser.add_argument('--compshare_lambda', type=float, default=5.0)
     parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--modelpath', type=str, default=None)
     parser.add_argument('--pretrainedpath', type=str)
     parser.add_argument('--outdir', type=str, default='/n/fs/context-scr/COCOStuff/save')
     parser.add_argument('--labels_train', type=str, default='/n/fs/context-scr/COCOStuff/labels_train.pkl')
-    parser.add_argument('--labels_test', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
+    parser.add_argument('--labels_val', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
     parser.add_argument('--device', default=torch.device('cuda'))
     parser.add_argument('--dtype', default=torch.float32)
 
@@ -57,8 +58,8 @@ def main():
                               B=arg['train_batchsize'], train=True,
                               removeclabels=removeclabels, removecimages=removecimages,
                               splitbiased=splitbiased)
-    testset = create_dataset(arg['dataset'], arg['labels_test'], biased_classes_mapped,
-                             B=arg['test_batchsize'], train=False,
+    valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped, 
+                             B=arg['val_batchsize'], train=False, 
                              splitbiased=splitbiased)
 
     # Initialize classifier
@@ -90,7 +91,7 @@ def main():
 
     # Hook feature extractor if necessary
     if arg['model'] == 'attribdecorr':
-        print('Registering pretrained features hook')
+        print('Registering pretrained features hook for attribute decorrelation training')
         pretrained_features = []
         def hook_pretrained_features(module, input, output):
             pretrained_features.append(output.squeeze())
@@ -98,6 +99,20 @@ def main():
             pretrained_net.model._modules['module'].resnet.avgpool.register_forward_hook(hook_pretrained_features)
         else:
             pretrained_net.model._modules['resnet'].avgpool.register_forward_hook(hook_pretrained_features)
+    if arg['model'] == 'cam':
+        print('Registering conv feature hooks for CAM training')
+        classifier_features = []
+        pretrained_features = []
+        def hook_classifier_features(module, input, output):
+            classifier_features.append(output)
+        def hook_pretrained_features(module, input, output):
+            pretrained_features.append(output)
+        if torch.cuda.device_count() > 1:
+            classifier.model._modules['module'].resnet.layer4.register_forward_hook(hook_classifier_features)
+            pretrained_net.model._modules['module'].resnet.layer4.register_forward_hook(hook_pretrained_features)
+        else:
+            classifier.model._modules['resnet'].layer4.register_forward_hook(hook_classifier_features)
+            pretrained_net.model._modules['resnet'].layer4.register_forward_hook(hook_pretrained_features)
 
     # Keep track of loss and mAP/recall for best model selection
     loss_epoch_list = []; exclusive_list = []; cooccur_list = []; all_list = []; nonbiased_list = []
@@ -114,7 +129,7 @@ def main():
                 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
                                                        momentum=0.9, weight_decay=arg['wd'])
             if i == arg['drop'] and arg['dataset'] == 'AwA':
-                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.001,
+                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, 
                                                        momentum=0.9, weight_decay=arg['wd'])
             if i == arg['drop'] and arg['dataset'] == 'DeepFashion':
                 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
@@ -132,42 +147,40 @@ def main():
             train_loss_list = classifier.train_attribdecorr(trainset, pretrained_net, biased_classes_mapped,
                                                             humanlabels_to_onehot, pretrained_features)
         if arg['model'] == 'cam':
-            train_loss_list = classifier.train_cam(trainset, pretrained_net, biased_classes_mapped)
+            train_loss_list = classifier.train_cam(trainset, pretrained_net, biased_classes_mapped, pretrained_features, classifier_features)
         if arg['model'] == 'featuresplit':
             if i == 0: xs_prev_ten = []
-            train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped,
-                                                                         weight, xs_prev_ten, split=1024)
+            train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped, 
+                                                                         weight, xs_prev_ten, split=arg['split'])
         if arg['model'] == 'fs_weighted':
             train_loss_list = classifier.train_fs_weighted(trainset, biased_classes_mapped, weight)
         if arg['model'] == 'fs_noweighted':
             if i == 0: xs_prev_ten = []
             train_loss_list, xs_prev_ten = classifier.train_fs_noweighted(trainset, biased_classes_mapped, 
                                                                         None, xs_prev_ten, split=1024)
-
-
+        
         # Save the model
         if (i + 1) % 1 == 0:
-            classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], i))
+            classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], classifier.epoch))
 
         # Do inference with the model
         if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit', 'fs_noweighted']:
-            labels_list, scores_list, test_loss_list = classifier.test(testset)
+            labels_list, scores_list, val_loss_list = classifier.test(valset)
         if arg['model'] == 'negativepenalty':
-            labels_list, scores_list, test_loss_list = classifier.test_negativepenalty(testset, biased_classes_mapped, penalty=10)
+            labels_list, scores_list, val_loss_list = classifier.test_negativepenalty(valset, biased_classes_mapped, penalty=10)
         if arg['model'] == 'classbalancing':
-            labels_list, scores_list, test_loss_list = classifier.test_classbalancing(testset, biased_classes_mapped, weight)
+            labels_list, scores_list, val_loss_list = classifier.test_classbalancing(valset, biased_classes_mapped, weight)
         if arg['model'] == 'weighted':
-            labels_list, scores_list, test_loss_list = classifier.test_weighted(testset, biased_classes_mapped, weight=10)
+            labels_list, scores_list, val_loss_list = classifier.test_weighted(valset, biased_classes_mapped, weight=10)
         if arg['model'] == 'attribdecorr':
-            labels_list, scores_list, test_loss_list = classifier.test_attribdecorr(testset, pretrained_net,
-                                                                                    biased_classes_mapped, pretrained_features)
+            labels_list, scores_list, val_loss_list = classifier.test_attribdecorr(valset, pretrained_net, biased_classes_mapped, pretrained_features)
         if arg['model'] == 'fs_weighted':
-            labels_list, scores_list, test_loss_list = classifier.test_fs_weighted(testset, biased_classes_mapped, weight)
+            labels_list, scores_list, val_loss_list = classifier.test_fs_weighted(valset, biased_classes_mapped, weight)
 
         # Record train/val loss
         tb.add_scalar('Loss/Train', np.mean(train_loss_list), i)
-        tb.add_scalar('Loss/Val', np.mean(test_loss_list), i)
-        loss_epoch_list.append(np.mean(test_loss_list))
+        tb.add_scalar('Loss/Val', np.mean(val_loss_list), i)
+        loss_epoch_list.append(np.mean(val_loss_list))
 
         # Calculate and record mAP
         APs = []
@@ -240,13 +253,13 @@ def main():
 
         # Print out information
         print('\nEpoch: {}'.format(i))
-        print('Loss: train {:.5f}, val {:.5f}'.format(np.mean(train_loss_list), np.mean(test_loss_list)))
+        print('Loss: train {:.5f}, val {:.5f}'.format(np.mean(train_loss_list), np.mean(val_loss_list)))
         if arg['dataset'] == 'COCOStuff':
             print('Val mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(arg['nclasses'], mAP*100, mAP_unbiased*100))
         else:
             print('Val mAP: all {} {:.5f}'.format(arg['nclasses'], mAP*100))
         print('Val mAP: co-occur {:.5f}, exclusive {:.5f}'.format(np.mean(list(cooccur_AP_dict.values()))*100,
-                                                                   np.mean(list(exclusive_AP_dict.values()))*100))
+                                                                  np.mean(list(exclusive_AP_dict.values()))*100))
         print('Time passed so far: {:.2f} minutes\n'.format((time.time()-start_time)/60.))
 
     # Print best model and close tensorboard logger
