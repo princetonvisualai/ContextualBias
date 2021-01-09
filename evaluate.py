@@ -14,7 +14,8 @@ def main():
     parser.add_argument('--model', type=str)
     parser.add_argument('--modelpath', type=str, default=None)
     parser.add_argument('--pretrainedpath', type=str, default=None)
-    parser.add_argument('--labels', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
+    parser.add_argument('--labels_test', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
+    parser.add_argument('--labels_train', type=str, default=None)
     parser.add_argument('--batchsize', type=int, default=170)
     parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--hs', type=int, default=2048)
@@ -28,17 +29,17 @@ def main():
     print('\n', arg, '\n')
 
     # Load utility files
-    biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+    biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/our_biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
     if arg['dataset'] == 'COCOStuff':
         unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
     humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
     onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
     # Create dataloader
-    testset = create_dataset(arg['dataset'], arg['labels'], biased_classes_mapped, B=arg['batchsize'], train=False, splitbiased=splitbiased)
+    testset = create_dataset(arg['dataset'], arg['labels_test'], biased_classes_mapped, B=arg['batchsize'], train=False, splitbiased=splitbiased)
 
     # Load model
-    classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'], hidden_size=arg['hs'])
+    classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'], hidden_size=arg['hs'], attribdecorr=(arg['model']=='attribdecorr'))
     if arg['model'] == 'classbalancing':
         weight = calculate_classbalancing_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped, beta=0.99)
         weight = weight.to(arg['device'])
