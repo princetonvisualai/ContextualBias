@@ -93,7 +93,6 @@ def main():
         # Categorize the images into co-occur/exclusive/other
         if splitbiased:
             cooccur = (labels_list[:,arg['nclasses']+k-20]==1)
-            print(len(np.where(cooccur==True)[0]))
             exclusive = (labels_list[:,b]==1)
         else:
             cooccur = (labels_list[:,b]==1) & (labels_list[:,c]==1)
