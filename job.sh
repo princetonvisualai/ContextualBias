@@ -6,7 +6,7 @@
 #SBATCH -A visualai            # specify which group of nodes to use
 #SBATCH --mem-per-cpu=4G       # memory per cpu-core (4G default)
 #SBATCH --gres=gpu:rtx_3090:1  # number of GPUs requested
-#SBATCH -t 6:00:00             # time requested in hour:minute:second
+#SBATCH -t 9:00:00             # time requested in hour:minute:second
 
 #SBATCH --mail-type=end,fail
 #SBATCH --mail-user=sharonz@princeton.edu
@@ -62,7 +62,7 @@ source /n/fs/context-scr/context/bin/activate # for RTX3090
 #  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
 #  --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
 #  --modelpath /n/fs/context-scr/sharonz/ContextualBias/AwA/save2/baseline/model_19.pth \
-#  --outdir AwA/save/featuresplit_256
+#  --outdir AwA/save2/featuresplit_256
 
 #python train.py --dataset AwA --model removecimages --nepoch 20 --nclasses 85 \
 #  --lr 0.01 --wd 0.0 --drop 20 \
@@ -88,12 +88,11 @@ source /n/fs/context-scr/context/bin/activate # for RTX3090
 #  --modelpath /n/fs/context-scr/sharonz/ContextualBias/AwA/save2/baseline/model_19.pth \
 #  --outdir AwA/save2
 
-python train.py --dataset AwA --model splitbiased --nepoch 2 --nclasses 85 \
+python train.py --dataset AwA --model splitbiased --nepoch 40 --nclasses 85 \
   --lr 0.1 --wd 0.0 --drop 10 \
   --val_batchsize 150 --train_batchsize 200 \
   --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
   --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
-  --modelpath /n/fs/context-scr/sharonz/ContextualBias/AwA/save2/splitbiased/model_38.pth \
   --outdir AwA/save2
 
 #python train.py --dataset AwA --model classbalancing --nepoch 20 --nclasses 85 \
