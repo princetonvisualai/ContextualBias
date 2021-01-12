@@ -31,7 +31,7 @@ def main():
     parser.add_argument('--outdir', type=str, default='/n/fs/context-scr/COCOStuff/save')
     parser.add_argument('--labels_train', type=str, default='/n/fs/context-scr/COCOStuff/labels_train.pkl')
     parser.add_argument('--labels_val', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
-    parser.add_argument('--device', default=torch.device('cuda'))
+    parser.add_argument('--device', default=torch.device('cuda:0'))
     parser.add_argument('--dtype', default=torch.float32)
 
     arg = vars(parser.parse_args())
