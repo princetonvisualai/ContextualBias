@@ -15,10 +15,10 @@ source /n/fs/context-scr/context/bin/activate # for RTX3090
 #source /n/fs/visualai-scr/sunnie/basic/bin/activate # for non-RTX3090
 
 ### COCO-Stuff
-#python train.py --dataset COCOStuff --model cam --nepoch 20 --nclasses 171 \
-#  --modelpath /n/fs/context-scr/sunnie/COCOStuff/lr0.1_wd0_drop60/baseline/model_67.pth \
-#  --val_batchsize 150 --train_batchsize 200 \
-#  --outdir COCOStuff/save
+python train.py --dataset COCOStuff --model cam --nepoch 2 --nclasses 171 \
+  --modelpath /n/fs/context-scr/sunnie/COCOStuff/lr0.1_wd0_drop60/baseline/model_67.pth \
+  --val_batchsize 150 --train_batchsize 100 \
+  --outdir COCOStuff/save/cam_test
 
 #python train.py --dataset COCOStuff --model baseline --batchsize 200 \
 #    --outdir save/coco/lr0.1_wd0.00001_b200 --lr 0.1 --wd 0.00001
