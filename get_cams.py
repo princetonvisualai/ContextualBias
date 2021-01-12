@@ -17,6 +17,12 @@ from load_data import *
 ###
 # Referenced from:
 # https://github.com/jacobgil/pytorch-grad-cam/blob/master/gradcam.py
+#
+# Example usage:
+# python get_cams.py --modelpath $MODELPATH --img_ids 535811 430054 554674
+#
+# --modelpath: path to the model to visualize
+# --img_ids: COCOStuff image IDs (use the Explore tool on the COCO dataset website)
 ###
 
 def get_heatmap(CAM_map, img):
