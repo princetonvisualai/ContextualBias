@@ -28,20 +28,20 @@ def get_heatmap(CAM_map, img):
     heatmap = np.uint8(255 * heatmap)
     return heatmap
 
-def returnCAM(feature_conv, weight_softmax, class_idx, device):
-    bz, nc, h, w = feature_conv.shape
+def returnCAM(feature_conv, weight_softmax, class_labels, device):
+    bz, nc, h, w = feature_conv.shape # (1, hidden_size, height, width)
     output_cam = torch.Tensor(0, 7, 7).to(device=device)
-    for idx in class_idx:
+    for idx in class_labels:
         cam = torch.mm(weight_softmax[idx].unsqueeze(0), feature_conv.reshape((nc, h*w)))
         cam = cam.reshape(h, w)
         cam = cam - cam.min()
         cam_img = cam / cam.max()
-        output_cam = torch.cat((output_cam, cam_img.unsqueeze(0)), 0)
+        output_cam = torch.cat([output_cam, cam_img.unsqueeze(0)], dim=0)
     return output_cam
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--modelpath', type=str, default='/n/fs/context-scr/sunnie/COCOStuff/lr0.1_wd0_drop60/baseline/model_67.pth')
+    parser.add_argument('--modelpath', type=str, default=None)
     parser.add_argument('--img_ids', type=int, nargs='+', default=0)
     parser.add_argument('--device', default=torch.device('cuda'))
     parser.add_argument('--dtype', default=torch.float32)
@@ -71,8 +71,12 @@ def main():
         img_path = '/n/fs/visualai-scr/Data/Coco/2014data/train2014/COCO_train2014_{:012d}.jpg'.format(img_id)
         img_name = img_path.split('/')[-1][:-4]
         if not os.path.exists(img_path):
-            print('WARNING: Could not find img {}'.format(img_id), flush=True)
-            continue
+            # Try searching in val set
+            img_path = '/n/fs/visualai-scr/Data/Coco/2014data/train2014/COCO_train2014_{:012d}.jpg'.format(img_id)
+            img_name = img_path.split('/')[-1][:-4]
+            if not os.path.exists(img_path):
+                print('WARNING: Could not find img {}'.format(img_id), flush=True)
+                continue
         original_img = Image.open(img_path).convert('RGB')
 
         outdir = 'COCOStuff/CAMs/{}'.format(img_id)
