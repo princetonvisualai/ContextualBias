@@ -489,26 +489,32 @@ class multilabel_classifier():
         """Train the 'CAM-based' model for one epoch"""
 
         def returnCAM(feature_conv, weight_softmax, class_idx, device):
-            bz, nc, h, w = feature_conv.shape
+            nc, h, w = feature_conv.shape # (hidden_size, height, width)
             output_cam = torch.Tensor(0, 7, 7).to(device=device)
             for idx in class_idx:
                 cam = torch.mm(weight_softmax[idx].unsqueeze(0), feature_conv.reshape((nc, h*w)))
                 cam = cam.reshape(h, w)
                 cam = cam - cam.min()
-                cam_img = cam / cam.max()
-                output_cam = torch.cat((output_cam, cam_img.unsqueeze(0)), 0)
-            return output_cam
+                cam_img = cam / cam.max() # (h, w)
+                output_cam = torch.cat((output_cam, cam_img.unsqueeze(0)), dim=0)
+            return output_cam # (2, height, width) dim0 is 2 because idx = [b, c]
 
+        # Define GPU for computing CAMs
+        if torch.cuda.device_count() > 1:
+            cam_device = torch.device('cuda:1')
+        else:
+            cam_device = torch.device('cuda:0')
+
+        # Load models and save final layer (softmax) weights
         pretrained_net.model = pretrained_net.model.to(device=self.device, dtype=self.dtype)
         pretrained_net.model.eval()
-
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.model.train()
 
         classifier_params = list(self.model.parameters())
-        classifier_softmax_weight = classifier_params[-2].squeeze(0)
+        classifier_softmax_weight = classifier_params[-2].squeeze(0).to(cam_device)
         pretrained_params = list(pretrained_net.model.parameters())
-        pretrained_softmax_weight = np.squeeze(pretrained_params[-2])
+        pretrained_softmax_weight = np.squeeze(pretrained_params[-2]).to(cam_device)
 
         # Loop over batches
         loss_list = []
@@ -529,32 +535,40 @@ class multilabel_classifier():
             # Get CAM from the current network
             classifier_features.clear()
             outputs = self.forward(images) # where the length of classifier_features increases
+            outputs.cpu()
 
             # In multi-GPU training, the hook outputs a list of outputs from each GPU, 
             # so we need to recombine them
-            classifier_feature_outputs = [x.to(device=self.device, dtype=self.dtype) for x in classifier_features]
-            classifier_feature_outputs = torch.cat(classifier_feature_outputs, dim=0).to(device=self.device, dtype=self.dtype)
+            classifier_features_all = [x.to(device=torch.device('cpu'), dtype=torch.float32) for x in classifier_features]
+            classifier_features_all = torch.cat(classifier_features_all, dim=0)
+            biased_classifier_features = classifier_features_all[cooccur].to(device=cam_device, dtype=self.dtype)
 
-            CAMs = torch.Tensor(0, 2, 7, 7).to(device=self.device)
+            CAMs = torch.Tensor(0, 2, 7, 7).to(device=cam_device)
             for k in range(len(cooccur)):
-                CAM = returnCAM(classifier_feature_outputs[cooccur[k]].unsqueeze(0), classifier_softmax_weight, cooccur_classes[k], self.device)
+                CAM = returnCAM(biased_classifier_features[k], classifier_softmax_weight, cooccur_classes[k], cam_device)
                 CAMs = torch.cat((CAMs, CAM.unsqueeze(0)), 0)
+            del biased_classifier_features
+            CAMs = CAMs.to(device=torch.device('cpu'))
 
             # Get CAM from the pre-trained network
             pretrained_features.clear()
-            _ = pretrained_net.model(images)
+            pretrained_net.model(images)
 
             # In multi-GPU training, the hook outputs a list of outputs from each GPU,
             # so we need to recombine them
-            pretrained_feature_outputs = [x.to(device=self.device, dtype=self.dtype) for x in pretrained_features]
-            pretrained_feature_outputs = torch.cat(pretrained_feature_outputs, dim=0).to(device=self.device, dtype=self.dtype)
+            pretrained_features_all = [x.to(device=torch.device('cpu'), dtype=torch.float32) for x in pretrained_features]
+            pretrained_features_all = torch.cat(pretrained_features_all, dim=0)
+            biased_pretrained_features = pretrained_features_all[cooccur].to(device=cam_device, dtype=self.dtype)
 
-            CAMs_pretrained = torch.Tensor(0, 2, 7, 7).to(self.device)
+            CAMs_pretrained = torch.Tensor(0, 2, 7, 7).to(cam_device)
             for k in range(len(cooccur)):
-                CAM_pretrained = returnCAM(pretrained_feature_outputs[cooccur[k]].unsqueeze(0), pretrained_softmax_weight, cooccur_classes[k], self.device)
+                CAM_pretrained = returnCAM(biased_pretrained_features[k], pretrained_softmax_weight, cooccur_classes[k], cam_device)
                 CAMs_pretrained = torch.cat((CAMs_pretrained, CAM_pretrained.unsqueeze(0)), 0)
+            del biased_pretrained_features
+            CAMs_pretrained = CAMs_pretrained.to(device=torch.device('cpu'))
 
             # Compute and update with the loss
+            outputs = outputs.to(device=self.device, dtype=self.dtype)
             self.optimizer.zero_grad()
             l_o = (CAMs[:,0] * CAMs[:,1]).mean()
             l_r = torch.abs(CAMs - CAMs_pretrained).mean()
@@ -563,6 +577,11 @@ class multilabel_classifier():
             loss = 0.1*l_o + 0.01*l_r + l_bce
             loss.backward()
             self.optimizer.step()
+            
+            # Clean up
+            del outputs
+            del CAMs
+            del CAMs_pretrained
 
             loss_list.append(loss.item())
             if self.print_freq and (i % self.print_freq == 0):

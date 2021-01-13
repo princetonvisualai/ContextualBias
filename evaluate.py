@@ -14,7 +14,8 @@ def main():
     parser.add_argument('--model', type=str)
     parser.add_argument('--modelpath', type=str, default=None)
     parser.add_argument('--pretrainedpath', type=str, default=None)
-    parser.add_argument('--labels', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
+    parser.add_argument('--labels_test', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
+    parser.add_argument('--labels_train', type=str, default=None)
     parser.add_argument('--batchsize', type=int, default=170)
     parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--hs', type=int, default=2048)
@@ -35,10 +36,10 @@ def main():
     onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
     # Create dataloader
-    testset = create_dataset(arg['dataset'], arg['labels'], biased_classes_mapped, B=arg['batchsize'], train=False, splitbiased=splitbiased)
+    testset = create_dataset(arg['dataset'], arg['labels_test'], biased_classes_mapped, B=arg['batchsize'], train=False, splitbiased=splitbiased)
 
     # Load model
-    classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'], hidden_size=arg['hs'])
+    classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'], hidden_size=arg['hs'], attribdecorr=(arg['model']=='attribdecorr'))
     if arg['model'] == 'classbalancing':
         weight = calculate_classbalancing_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped, beta=0.99)
         weight = weight.to(arg['device'])
@@ -93,7 +94,6 @@ def main():
         # Categorize the images into co-occur/exclusive/other
         if splitbiased:
             cooccur = (labels_list[:,arg['nclasses']+k-20]==1)
-            print(len(np.where(cooccur==True)[0]))
             exclusive = (labels_list[:,b]==1)
         else:
             cooccur = (labels_list[:,b]==1) & (labels_list[:,c]==1)

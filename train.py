@@ -31,10 +31,12 @@ def main():
     parser.add_argument('--outdir', type=str, default='/n/fs/context-scr/COCOStuff/save')
     parser.add_argument('--labels_train', type=str, default='/n/fs/context-scr/COCOStuff/labels_train.pkl')
     parser.add_argument('--labels_val', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
-    parser.add_argument('--device', default=torch.device('cuda'))
+    parser.add_argument('--device', default=torch.device('cuda:0'))
     parser.add_argument('--dtype', default=torch.float32)
 
     arg = vars(parser.parse_args())
+    if arg['model'] == 'splitbiased':
+        arg['nclasses'] = arg['nclasses'] + 20
     arg['outdir'] = '{}/{}'.format(arg['outdir'], arg['model'])
     print('\n', arg, '\n')
     print('\nTraining with {} GPUs'.format(torch.cuda.device_count()))
@@ -77,7 +79,7 @@ def main():
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'],
                                                momentum=0.9, weight_decay=arg['wd'])
     if arg['model'] == 'splitbiased':
-        arg['nclasses'] = arg['nclasses'] + 20
+        #arg['nclasses'] = arg['nclasses'] + 20
         classifier.model.resnet.fc = torch.nn.Linear(arg['hs'], arg['nclasses'])
         classifier.nclasses = arg['nclasses']
 
@@ -121,7 +123,7 @@ def main():
     tb = SummaryWriter(log_dir='{}/runs'.format(arg['outdir']))
     start_time = time.time()
     print('\nStarted training at {}\n'.format(start_time))
-    for i in range(classifier.epoch, classifier.epoch+arg['nepoch']+1):
+    for i in range(classifier.epoch, classifier.epoch+arg['nepoch']):
 
         # Reduce learning rate from 0.1 to 0.01
         if arg['model'] != 'attribdecorr':
@@ -252,7 +254,7 @@ def main():
         exclusive_list.append(np.mean(list(exclusive_AP_dict.values()))*100)
 
         # Print out information
-        print('\nEpoch: {}'.format(i))
+        print('\nEpoch: {}'.format(i + 1))
         print('Loss: train {:.5f}, val {:.5f}'.format(np.mean(train_loss_list), np.mean(val_loss_list)))
         if arg['dataset'] == 'COCOStuff':
             print('Val mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(arg['nclasses'], mAP*100, mAP_unbiased*100))
@@ -264,10 +266,10 @@ def main():
 
     # Print best model and close tensorboard logger
     tb.close()
-    print('Best model at {} with lowest val loss {}'.format(np.argmin(loss_epoch_list), np.min(loss_epoch_list)))
-    print('Best model at {} with highest exclusive {}'.format(np.argmax(exclusive_list), np.max(exclusive_list)))
-    print('Best model at {} with highest exclusive+cooccur {}'.format(np.argmax(np.array(exclusive_list)+np.array(cooccur_list)),
-        np.max(np.array(exclusive_list)+np.array(cooccur_list))))
+    print('Best model at {} with lowest val loss {}'.format(np.argmin(loss_epoch_list) + 1, np.min(loss_epoch_list)))
+    print('Best model at {} with highest exclusive {}'.format(np.argmax(exclusive_list) + 1, np.max(exclusive_list)))
+    print('Best model at {} with highest exclusive+cooccur {}'.format(np.argmax(np.array(exclusive_list)+np.array(cooccur_list)) + 1, 
+                                                                      np.max(np.array(exclusive_list)+np.array(cooccur_list))))
 
 if __name__ == "__main__":
     main()
