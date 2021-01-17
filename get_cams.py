@@ -27,6 +27,9 @@ from load_data import *
 
 def get_heatmap(CAM_map, img):
     CAM_map = cv2.resize(CAM_map, (img.shape[0], img.shape[1]))
+    CAM_map = CAM_map - np.min(CAM_map)
+    CAM_map = CAM_map / np.max(CAM_map)
+    CAM_map = 1.0 - CAM_map # make sure colormap is not reversed
     heatmap = cv2.applyColorMap(np.uint8(255 * CAM_map), cv2.COLORMAP_JET)
     heatmap = np.float32(heatmap) / 255
     heatmap = heatmap + np.float32(img)
@@ -49,6 +52,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--modelpath', type=str, default=None)
     parser.add_argument('--img_ids', type=int, nargs='+', default=0)
+    parser.add_argument('--outdir', type=str, default=None)
     parser.add_argument('--device', default=torch.device('cuda'))
     parser.add_argument('--dtype', default=torch.float32)
     arg = vars(parser.parse_args())
@@ -85,7 +89,10 @@ def main():
                 continue
         original_img = Image.open(img_path).convert('RGB')
 
-        outdir = 'COCOStuff/CAMs/{}'.format(img_id)
+        if arg['outdir'] != None:
+            outdir = '{}/{}'.format(arg['outdir'], img_id)
+        else:
+            outdir = str(img_id)
         if not os.path.exists(outdir):
             os.makedirs(outdir)
         print('Processing img {}'.format(img_id), flush=True)
@@ -109,6 +116,7 @@ def main():
                 class_labels = torch.zeros(1)
         class_labels = torch.flatten(torch.nonzero(class_labels))
 
+        classifier_features.clear()
         img = transform(original_img)
         norm_img = normalize(img)
         norm_img = norm_img.to(device=classifier.device, dtype=classifier.dtype)
