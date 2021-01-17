@@ -7,6 +7,7 @@ from classifier import multilabel_classifier
 from load_data import *
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--dataset', type=str, default='COCOStuff')
 parser.add_argument('--modelpath', type=str, default=None)
 parser.add_argument('--hs', type=int, default=2048)
 parser.add_argument('--nclasses', type=int, default=171)
@@ -16,8 +17,8 @@ arg = vars(parser.parse_args())
 print('\n', arg, '\n')
 
 # Load utility files
-biased_classes_mapped = pickle.load(open('/n/fs/context-scr/COCOStuff/biased_classes_mapped.pkl', 'rb'))
-humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/COCOStuff/humanlabels_to_onehot.pkl', 'rb'))
+biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
 onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
 # Load model
