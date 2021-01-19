@@ -48,11 +48,30 @@ def returnCAM(feature_conv, weight_softmax, class_labels, device):
         output_cam = torch.cat([output_cam, cam_img.unsqueeze(0)], dim=0)
     return output_cam
 
+def returnCAM_featuresplit(feature_conv, weight_softmax, class_labels, device, split=1024):
+    feature_conv_o = feature_conv[:,:split,:,:]
+    feature_conv_s = feature_conv[:,split:,:,:]
+    bz, nc, h, w = feature_conv.shape
+    output_cam = torch.Tensor(0, 7, 7).to(device=device)
+    for idx in class_labels:
+        cam_o = torch.mm(weight_softmax[idx][:split].unsqueeze(0), feature_conv_o.reshape((split, h*w)))
+        cam_s = torch.mm(weight_softmax[idx][split:].unsqueeze(0), feature_conv_s.reshape((nc-split, h*w)))
+        cam_o = cam_o.reshape(h, w)
+        cam_s = cam_s.reshape(h, w)
+        cam_o = cam_o - cam_o.min()
+        cam_s = cam_s - cam_s.min()
+        cam_o_img = cam_o / cam_o.max()
+        cam_s_img = cam_s / cam_s.max()
+        output_cam = torch.cat([output_cam, cam_o_img.unsqueeze(0), cam_s_img.unsqueeze(0)], dim=0)
+    return output_cam
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--modelpath', type=str, default=None)
     parser.add_argument('--img_ids', type=int, nargs='+', default=0)
     parser.add_argument('--outdir', type=str, default=None)
+    parser.add_argument('--featuresplit', type=bool, default=False)
+    parser.add_argument('--split', type=int, default=1024)
     parser.add_argument('--device', default=torch.device('cuda'))
     parser.add_argument('--dtype', default=torch.float32)
     arg = vars(parser.parse_args())
@@ -123,7 +142,10 @@ def main():
         norm_img = norm_img.unsqueeze(0)
         x = classifier.forward(norm_img)
 
-        CAMs = returnCAM(classifier_features[0], classifier_softmax_weight, class_labels, arg['device'])
+        if arg['featuresplit']:
+            CAMs = returnCAM_featuresplit(classifier_features[0], classifier_softmax_weight, class_labels, arg['device'], split=arg['split'])
+        else: 
+            CAMs = returnCAM(classifier_features[0], classifier_softmax_weight, class_labels, arg['device'])
         CAMs = CAMs.detach().cpu().numpy()
 
         # Save CAM heatmap
@@ -132,16 +154,36 @@ def main():
 
         img = np.moveaxis(img.detach().cpu().numpy(), 0, -1)
         class_labels = class_labels.cpu().detach().numpy()
-        for i in range(len(class_labels)): 
-            heatmap = get_heatmap(CAMs[i], img)
-            plt.figure()
-            plt.imshow(heatmap)
-            plt.axis('off')
-            plt.title(onehot_to_humanlabels[class_labels[i]])
-            humanlabel = onehot_to_humanlabels[class_labels[i]].replace(' ', '+')
-            plt.savefig('{}/{}_{}.png'.format(outdir, img_name, humanlabel))
-            plt.show()
-            plt.close()
+        if arg['featuresplit']:
+            for i in range(len(class_labels)):
+                heatmap_o = get_heatmap(CAMs[2*i], img)
+                heatmap_s = get_heatmap(CAMs[2*i+1], img)
+                
+                fig = plt.figure()
+                fig_o = fig.add_subplot(121)
+                fig_o.imshow(heatmap_o)
+                fig_o.axis('off')
+                fig_o.set_title('{} ({})'.format(onehot_to_humanlabels[class_labels[i]], 'Wo'))
+                
+                fig_s = fig.add_subplot(122)
+                fig_s.imshow(heatmap_s)
+                fig_s.axis('off')
+                fig_s.set_title('{} ({})'.format(onehot_to_humanlabels[class_labels[i]], 'Ws'))
+                humanlabel = onehot_to_humanlabels[class_labels[i]].replace(' ', '+')
+                plt.savefig('{}/{}_{}.png'.format(outdir, img_name, humanlabel))
+                plt.show()
+                plt.close()
+        else:
+            for i in range(len(class_labels)): 
+                heatmap = get_heatmap(CAMs[i], img)
+                plt.figure()
+                plt.imshow(heatmap)
+                plt.axis('off')
+                plt.title(onehot_to_humanlabels[class_labels[i]])
+                humanlabel = onehot_to_humanlabels[class_labels[i]].replace(' ', '+')
+                plt.savefig('{}/{}_{}.png'.format(outdir, img_name, humanlabel))
+                plt.show()
+                plt.close()
 
 if __name__ == '__main__':
     main()
