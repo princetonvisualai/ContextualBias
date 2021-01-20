@@ -36,7 +36,7 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
             for b in biased_classes_mapped.keys():
                 c = biased_classes_mapped[b]
                 if img_labels[img_path][b] == 1:
-                    img_labels[img_path][c] == 0
+                    img_labels[img_path][c] = 0
 
     # Strong baseline - remove co-occuring images
     if removecimages:
