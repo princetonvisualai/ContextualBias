@@ -32,7 +32,7 @@ class multilabel_classifier():
         self.hidden_size = hidden_size
         self.device = device
         self.dtype = dtype
-            
+
         # For attribute decorrelation baseline, we train a linear classifier on top of pretrained deep features
         if attribdecorr:
             params = OrderedDict([
@@ -45,7 +45,7 @@ class multilabel_classifier():
         else:
             self.model = ResNet50(n_classes=nclasses, hidden_size=hidden_size, pretrained=True)
             self.model.require_all_grads()
-        
+
         # Multi-GPU training
         if torch.cuda.device_count() > 1:
             self.model = nn.DataParallel(self.model)
@@ -64,7 +64,7 @@ class multilabel_classifier():
                 value = load_state_dict[key]
                 # Multi-GPU state dict has the prefix 'module.' appended in front of each key
                 if torch.cuda.device_count() > 1:
-                    if load_prefix != 'module': 
+                    if load_prefix != 'module':
                         new_key = 'module.' + key
                         new_state_dict[new_key] = value
                     else:
@@ -77,7 +77,7 @@ class multilabel_classifier():
                         new_state_dict[key] = value
             self.model.load_state_dict(new_state_dict)
             self.epoch = A['epoch']
-        
+
     def forward(self, x):
         outputs = self.model(x)
         return outputs
@@ -485,7 +485,7 @@ class multilabel_classifier():
                 scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
         return labels_list, scores_list, loss_list
 
-    def train_cam(self, loader, pretrained_net, biased_classes_mapped, pretrained_features, classifier_features):
+    def train_cam(self, loader, pretrained_net, biased_classes_mapped, pretrained_features, classifier_features, lambda1=0.1, lambda2=0.01):
         """Train the 'CAM-based' model for one epoch"""
 
         def returnCAM(feature_conv, weight_softmax, class_idx, device):
@@ -518,6 +518,9 @@ class multilabel_classifier():
 
         # Loop over batches
         loss_list = []
+        lo_list = []
+        lr_list = []
+        lbce_list = []
         for i, (images, labels, ids) in enumerate(loader):
             images = images.to(device=self.device, dtype=self.dtype)
             labels = labels.to(device=self.device, dtype=self.dtype)
@@ -537,7 +540,7 @@ class multilabel_classifier():
             outputs = self.forward(images) # where the length of classifier_features increases
             outputs.cpu()
 
-            # In multi-GPU training, the hook outputs a list of outputs from each GPU, 
+            # In multi-GPU training, the hook outputs a list of outputs from each GPU,
             # so we need to recombine them
             classifier_features_all = [x.to(device=torch.device('cpu'), dtype=torch.float32) for x in classifier_features]
             classifier_features_all = torch.cat(classifier_features_all, dim=0)
@@ -574,22 +577,25 @@ class multilabel_classifier():
             l_r = torch.abs(CAMs - CAMs_pretrained).mean()
             criterion = torch.nn.BCEWithLogitsLoss()
             l_bce = criterion(outputs.squeeze(), labels)
-            loss = 0.1*l_o + 0.01*l_r + l_bce
+            loss = lambda1*l_o + lambda2*l_r + l_bce
             loss.backward()
             self.optimizer.step()
-            
+
             # Clean up
             del outputs
             del CAMs
             del CAMs_pretrained
 
             loss_list.append(loss.item())
+            lo_list.append(lambda1*l_o.item())
+            lr_list.append(lambda2*l_r.item())
+            lbce_list.append(l_bce.item())
             if self.print_freq and (i % self.print_freq == 0):
                 print('Training epoch {} [{}|{}] loss: {}'.format(self.epoch, i+1, len(loader), loss.item()), flush=True)
 
         self.epoch += 1
 
-        return loss_list
+        return loss_list, lo_list, lr_list, lbce_list
 
     def test_cam(self, loader, pretrained_net, biased_classes_mapped):
         """Evaluate the 'CAM-based' model"""

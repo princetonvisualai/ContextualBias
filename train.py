@@ -15,7 +15,7 @@ def main():
     parser.add_argument('--model', type=str, default='baseline',
         choices=['baseline', 'cam', 'featuresplit', 'splitbiased', 'weighted',
         'removeclabels', 'removecimages', 'negativepenalty', 'classbalancing',
-        'attribdecorr', 'fs_weighted', 'fs_noweighted'])
+        'attribdecorr', 'fs_weighted', 'fs_noweighted', 'cam_noreg'])
     parser.add_argument('--nepoch', type=int, default=100)
     parser.add_argument('--train_batchsize', type=int, default=200)
     parser.add_argument('--val_batchsize', type=int, default=170)
@@ -23,6 +23,8 @@ def main():
     parser.add_argument('--drop', type=int, default=60)
     parser.add_argument('--wd', type=float, default=0.0)
     parser.add_argument('--hs', type=int, default=2048)
+    parser.add_argument('--cam_lambda1', type=float, default=0.1)
+    parser.add_argument('--cam_lambda2', type=float, default=0.01)
     parser.add_argument('--split', type=int, default=1024)
     parser.add_argument('--compshare_lambda', type=float, default=5.0)
     parser.add_argument('--nclasses', type=int, default=171)
@@ -60,8 +62,8 @@ def main():
                               B=arg['train_batchsize'], train=True,
                               removeclabels=removeclabels, removecimages=removecimages,
                               splitbiased=splitbiased)
-    valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped, 
-                             B=arg['val_batchsize'], train=False, 
+    valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped,
+                             B=arg['val_batchsize'], train=False,
                              splitbiased=splitbiased)
 
     # Initialize classifier
@@ -78,10 +80,6 @@ def main():
         pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'],
                                                momentum=0.9, weight_decay=arg['wd'])
-    if arg['model'] == 'splitbiased':
-        #arg['nclasses'] = arg['nclasses'] + 20
-        classifier.model.resnet.fc = torch.nn.Linear(arg['hs'], arg['nclasses'])
-        classifier.nclasses = arg['nclasses']
 
     # Calculate loss weights for the class-balancing and feature-splitting methods
     if arg['model'] == 'classbalancing':
@@ -131,7 +129,7 @@ def main():
                 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
                                                        momentum=0.9, weight_decay=arg['wd'])
             if i == arg['drop'] and arg['dataset'] == 'AwA':
-                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, 
+                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
                                                        momentum=0.9, weight_decay=arg['wd'])
             if i == arg['drop'] and arg['dataset'] == 'DeepFashion':
                 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
@@ -149,18 +147,19 @@ def main():
             train_loss_list = classifier.train_attribdecorr(trainset, pretrained_net, biased_classes_mapped,
                                                             humanlabels_to_onehot, pretrained_features)
         if arg['model'] == 'cam':
-            train_loss_list = classifier.train_cam(trainset, pretrained_net, biased_classes_mapped, pretrained_features, classifier_features)
+            train_loss_list, lo_list, lr_list, lbce_list = classifier.train_cam(trainset, pretrained_net, biased_classes_mapped,
+                pretrained_features, classifier_features, lambda1=arg['cam_lambda1'], lambda2=arg['cam_lambda2'])
         if arg['model'] == 'featuresplit':
             if i == 0: xs_prev_ten = []
-            train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped, 
+            train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped,
                                                                          weight, xs_prev_ten, split=arg['split'])
         if arg['model'] == 'fs_weighted':
             train_loss_list = classifier.train_fs_weighted(trainset, biased_classes_mapped, weight)
         if arg['model'] == 'fs_noweighted':
             if i == 0: xs_prev_ten = []
-            train_loss_list, xs_prev_ten = classifier.train_fs_noweighted(trainset, biased_classes_mapped, 
+            train_loss_list, xs_prev_ten = classifier.train_fs_noweighted(trainset, biased_classes_mapped,
                                                                         None, xs_prev_ten, split=1024)
-        
+
         # Save the model
         if (i + 1) % 1 == 0:
             classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], classifier.epoch))
@@ -182,6 +181,10 @@ def main():
         # Record train/val loss
         tb.add_scalar('Loss/Train', np.mean(train_loss_list), i)
         tb.add_scalar('Loss/Val', np.mean(val_loss_list), i)
+        if arg['model'] == 'cam':
+            tb.add_scalar('Loss/L_O', np.mean(lo_list), i)
+            tb.add_scalar('Loss/L_R', np.mean(lr_list), i)
+            tb.add_scalar('Loss/L_BCE', np.mean(lbce_list), i)
         loss_epoch_list.append(np.mean(val_loss_list))
 
         # Calculate and record mAP
@@ -268,7 +271,7 @@ def main():
     tb.close()
     print('Best model at {} with lowest val loss {}'.format(np.argmin(loss_epoch_list) + 1, np.min(loss_epoch_list)))
     print('Best model at {} with highest exclusive {}'.format(np.argmax(exclusive_list) + 1, np.max(exclusive_list)))
-    print('Best model at {} with highest exclusive+cooccur {}'.format(np.argmax(np.array(exclusive_list)+np.array(cooccur_list)) + 1, 
+    print('Best model at {} with highest exclusive+cooccur {}'.format(np.argmax(np.array(exclusive_list)+np.array(cooccur_list)) + 1,
                                                                       np.max(np.array(exclusive_list)+np.array(cooccur_list))))
 
 if __name__ == "__main__":
