@@ -597,92 +597,6 @@ class multilabel_classifier():
 
         return loss_list, lo_list, lr_list, lbce_list
 
-    def test_cam(self, loader, pretrained_net, biased_classes_mapped):
-        """Evaluate the 'CAM-based' model"""
-
-        def returnCAM(feature_conv, weight_softmax, class_idx, device):
-            bz, nc, h, w = feature_conv.shape
-            output_cam = torch.Tensor(0, 7, 7).to(device=device)
-            for idx in class_idx:
-                cam = torch.mm(weight_softmax[idx].unsqueeze(0), feature_conv.reshape((nc, h*w)))
-                cam = cam.reshape(h, w)
-                cam = cam - cam.min()
-                cam_img = cam / cam.max()
-                output_cam = torch.cat((output_cam, cam_img.unsqueeze(0)), 0)
-            return output_cam
-
-        pretrained_net.model = pretrained_net.model.to(device=self.device, dtype=self.dtype)
-        pretrained_net.model.eval()
-
-        self.model = self.model.to(device=self.device, dtype=self.dtype)
-        self.model.eval()
-
-        # Hook the feature extractor
-        classifier_features = []
-        def hook_classifier_features(module, input, output):
-            classifier_features.append(output)
-        self.model._modules['resnet'].layer4.register_forward_hook(hook_classifier_features)
-        classifier_params = list(self.model.parameters())
-        classifier_softmax_weight = classifier_params[-2].squeeze(0)
-
-        pretrained_features = []
-        def hook_pretrained_feature(module, input, output):
-            pretrained_features.append(output)
-        pretrained_net.model._modules['resnet'].layer4.register_forward_hook(hook_pretrained_feature)
-        pretrained_params = list(pretrained_net.model.parameters())
-        pretrained_softmax_weight = np.squeeze(pretrained_params[-2])
-
-        with torch.no_grad():
-
-            labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            loss_list = []
-
-            for i, (images, labels, ids) in enumerate(loader):
-                images = images.to(device=self.device, dtype=self.dtype)
-                labels = labels.to(device=self.device, dtype=self.dtype)
-
-                # Identify co-occurring instances
-                cooccur = [] # Image indices with co-occurrences
-                cooccur_classes = [] # (b, c) pair for the above images
-                for m in range(labels.shape[0]):
-                    for b in biased_classes_mapped.keys():
-                        c = biased_classes_mapped[b]
-                        if (labels[m,b]==1) & (labels[m,c]==1):
-                            cooccur.append(m)
-                            cooccur_classes.append([b, c])
-
-                # Get CAM from the current network
-                classifier_features = []
-                outputs = self.forward(images)
-                CAMs = torch.Tensor(0, 2, 7, 7).to(device=self.device)
-                for k in range(len(cooccur)):
-                    CAM = returnCAM(classifier_features[0][cooccur[k]].unsqueeze(0), classifier_softmax_weight, cooccur_classes[k], self.device)
-                    CAMs = torch.cat((CAMs, CAM.unsqueeze(0)), 0)
-
-                # Get CAM from the pre-trained network
-                pretrained_features = []
-                _ = pretrained_net.model(images)
-                CAMs_pretrained = torch.Tensor(0, 2, 7, 7).to(self.device)
-                for k in range(len(cooccur)):
-                    CAM_pretrained = returnCAM(pretrained_features[0][cooccur[k]].unsqueeze(0), pretrained_softmax_weight, cooccur_classes[k], self.device)
-                    CAMs_pretrained = torch.cat((CAMs_pretrained, CAM_pretrained.unsqueeze(0)), 0)
-
-                # Compute the loss
-                l_o = (CAMs[:,0] * CAMs[:,1]).mean()
-                l_r = torch.abs(CAMs - CAMs_pretrained).mean()
-                criterion = torch.nn.BCEWithLogitsLoss()
-                l_bce = criterion(outputs.squeeze(), labels)
-                loss = 0.1*l_o + 0.01*l_r + l_bce
-
-                # Keep track of the values
-                loss_list.append(loss.item())
-                scores = torch.sigmoid(outputs).squeeze()
-                labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
-                scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
-
-        return labels_list, scores_list, loss_list
-
     def train_featuresplit(self, loader, biased_classes_mapped, weight, xs_prev_ten, split=1024):
         """Train the 'feature-splitting' model for one epoch"""
 
@@ -824,7 +738,7 @@ class multilabel_classifier():
         return loss_list
 
     def test_fs_weighted(self, loader, biased_classes_mapped, weight):
-        """Test the 'non-feature-split weighted loss' model for one epoch"""
+        """Test the 'baseline with feature-split weighted loss' model for one epoch"""
 
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.model.eval()

@@ -15,7 +15,7 @@ def main():
     parser.add_argument('--model', type=str, default='baseline',
         choices=['baseline', 'cam', 'featuresplit', 'splitbiased', 'weighted',
         'removeclabels', 'removecimages', 'negativepenalty', 'classbalancing',
-        'attribdecorr', 'fs_weighted', 'fs_noweighted', 'cam_noreg'])
+        'attribdecorr', 'fs_weighted', 'fs_noweighted'])
     parser.add_argument('--nepoch', type=int, default=100)
     parser.add_argument('--train_batchsize', type=int, default=200)
     parser.add_argument('--val_batchsize', type=int, default=170)
@@ -125,13 +125,7 @@ def main():
 
         # Reduce learning rate from 0.1 to 0.01
         if arg['model'] != 'attribdecorr':
-            if i == arg['drop'] and arg['dataset'] == 'COCOStuff':
-                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
-                                                       momentum=0.9, weight_decay=arg['wd'])
-            if i == arg['drop'] and arg['dataset'] == 'AwA':
-                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
-                                                       momentum=0.9, weight_decay=arg['wd'])
-            if i == arg['drop'] and arg['dataset'] == 'DeepFashion':
+            if i == arg['drop']:
                 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
                                                        momentum=0.9, weight_decay=arg['wd'])
 
@@ -158,7 +152,7 @@ def main():
         if arg['model'] == 'fs_noweighted':
             if i == 0: xs_prev_ten = []
             train_loss_list, xs_prev_ten = classifier.train_fs_noweighted(trainset, biased_classes_mapped,
-                                                                        None, xs_prev_ten, split=1024)
+                                                                        None, xs_prev_ten, split=arg['split'])
 
         # Save the model
         if (i + 1) % 1 == 0:
