@@ -78,10 +78,6 @@ def main():
         pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'],
                                                momentum=0.9, weight_decay=arg['wd'])
-    if arg['model'] == 'splitbiased':
-        #arg['nclasses'] = arg['nclasses'] + 20
-        classifier.model.resnet.fc = torch.nn.Linear(arg['hs'], arg['nclasses'])
-        classifier.nclasses = arg['nclasses']
 
     # Calculate loss weights for the class-balancing and feature-splitting methods
     if arg['model'] == 'classbalancing':
