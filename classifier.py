@@ -24,7 +24,6 @@ class ResNet50(nn.Module):
         outputs = self.resnet(x)
         return outputs
 
-
 class multilabel_classifier():
 
     def __init__(self, device, dtype, nclasses=171, modelpath=None, hidden_size=2048, learning_rate=0.1, weight_decay=1e-4, attribdecorr=False, compshare_lambda=0.1):
@@ -677,11 +676,16 @@ class multilabel_classifier():
 
         return labels_list, scores_list, loss_list
 
-    def train_featuresplit(self, loader, biased_classes_mapped, weight, xs_prev_ten, split=1024):
+    def train_featuresplit(self, loader, biased_classes_mapped, weight, xs_prev_ten, classifier_features, split=1024):
         """Train the 'feature-splitting' model for one epoch"""
 
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.model.train()
+
+        # Get weights for last fc layer
+        classifier_fc_weight = self.model.resnet.fc.weight
+        classifier_fc_bias = self.model.resnet.fc.bias
+        #print('classifier_fc_weight:', classifier_fc_weight.shape, flush=True)
 
         loss_list = []
         for i, (images, labels, ids) in enumerate(loader):
@@ -703,25 +707,32 @@ class multilabel_classifier():
             # Update parameters with non-exclusive samples (co-occur or neither b nor c appears)
             if (~exclusive).sum() > 0:
                 self.optimizer.zero_grad()
-                x_non = self.forward(images[~exclusive])
+                out_non = self.forward(images[~exclusive])
+                x_non = classifier_features[0]
+                if len(x_non.shape) < 2:
+                    x_non = x_non.unsqueeze(0)
+                #print('x_non:', x_non.shape, flush=True)
                 criterion = torch.nn.BCEWithLogitsLoss()
-                loss_non = criterion(x_non, labels[~exclusive])
+                loss_non = criterion(out_non, labels[~exclusive])
                 loss_non.backward()
-                self.optimizer.step()
-
+                del out_non
+                
                 # Keep track of xs
                 xs_prev_ten.append(x_non[:, split:].detach())
                 if len(xs_prev_ten) > 10:
                     xs_prev_ten.pop(0)
 
                 l_non = loss_non.item()
+                classifier_features.clear()
             else:
                 l_non = 0.
 
             # Update parameters with exclusive samples
             if exclusive.sum() > 0:
                 self.optimizer.zero_grad()
-                x_exc = self.forward(images[exclusive])
+                self.forward(images[exclusive])
+                x_exc = classifier_features[0]
+                #print('x_exc:', x_exc.shape, flush=True)
 
                 # Replace the second half of the features with xs_mean
                 if len(xs_prev_ten) > 0:
@@ -729,9 +740,11 @@ class multilabel_classifier():
                     x_exc[:, split:] = xs_mean.detach()
 
                 # Get the loss
-                out_exc = x_exc
+                out_exc = torch.matmul(x_exc, classifier_fc_weight.t()) + classifier_fc_bias
+                #print('out_exc:', out_exc.shape, flush=True)
                 criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
                 loss_exc_tensor = criterion(out_exc, labels[exclusive])
+                classifier_features.clear()
 
                 # Create a loss weight tensor
                 weight_tensor = torch.ones_like(out_exc)
@@ -749,9 +762,11 @@ class multilabel_classifier():
                 b_list = [i in exclusive_classes for i in range(self.nclasses)]
                 if torch.cuda.device_count() > 1:
                     self.model._modules['module'].resnet.fc.weight.grad[b_list, split:] = 0.
+                    self.model._modules['module'].resnet.fc.bias.grad[split:] = 0.
                     assert not (self.model._modules['module'].resnet.fc.weight.grad[b_list, split:] != 0.).sum() > 0
                 else:
                     self.model.resnet.fc.weight.grad[b_list, split:] = 0.
+                    self.model.resnet.fc.bias.grad[split:] = 0.
                     assert not (self.model.resnet.fc.weight.grad[b_list, split:] != 0.).sum() > 0
                 self.optimizer.step()
 

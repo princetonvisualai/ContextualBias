@@ -97,6 +97,15 @@ def main():
             pretrained_net.model._modules['module'].resnet.avgpool.register_forward_hook(hook_pretrained_features)
         else:
             pretrained_net.model._modules['resnet'].avgpool.register_forward_hook(hook_pretrained_features)
+    if arg['model'] == 'featuresplit':
+        print('Registering classifier features hook for feature-split training')
+        classifier_features = []
+        def hook_classifier_features(module, input, output):
+            classifier_features.append(output.squeeze())
+        if torch.cuda.device_count() > 1:
+            classifier.model._modules['module'].resnet.avgpool.register_forward_hook(hook_classifier_features)
+        else:
+            classifier.model._modules['resnet'].avgpool.register_forward_hook(hook_classifier_features)
     if arg['model'] == 'cam':
         print('Registering conv feature hooks for CAM training')
         classifier_features = []
@@ -148,8 +157,7 @@ def main():
             train_loss_list = classifier.train_cam(trainset, pretrained_net, biased_classes_mapped, pretrained_features, classifier_features)
         if arg['model'] == 'featuresplit':
             if i == 0: xs_prev_ten = []
-            train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped, 
-                                                                         weight, xs_prev_ten, split=arg['split'])
+            train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten, classifier_features, split=arg['split'])
         if arg['model'] == 'fs_weighted':
             train_loss_list = classifier.train_fs_weighted(trainset, biased_classes_mapped, weight)
         if arg['model'] == 'fs_noweighted':
