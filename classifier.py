@@ -707,6 +707,7 @@ class multilabel_classifier():
             # Update parameters with non-exclusive samples (co-occur or neither b nor c appears)
             if (~exclusive).sum() > 0:
                 self.optimizer.zero_grad()
+                classifier_features.clear()
                 out_non = self.forward(images[~exclusive])
                 x_non = classifier_features[0]
                 if len(x_non.shape) < 2:
@@ -723,13 +724,13 @@ class multilabel_classifier():
                     xs_prev_ten.pop(0)
 
                 l_non = loss_non.item()
-                classifier_features.clear()
             else:
                 l_non = 0.
 
             # Update parameters with exclusive samples
             if exclusive.sum() > 0:
                 self.optimizer.zero_grad()
+                classifier_features.clear()
                 self.forward(images[exclusive])
                 x_exc = classifier_features[0]
                 #print('x_exc:', x_exc.shape, flush=True)
@@ -744,7 +745,6 @@ class multilabel_classifier():
                 #print('out_exc:', out_exc.shape, flush=True)
                 criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
                 loss_exc_tensor = criterion(out_exc, labels[exclusive])
-                classifier_features.clear()
 
                 # Create a loss weight tensor
                 weight_tensor = torch.ones_like(out_exc)
