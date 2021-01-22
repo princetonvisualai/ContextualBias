@@ -22,14 +22,16 @@ def main():
     parser.add_argument('--lr', type=float, default=0.1)
     parser.add_argument('--drop', type=int, default=60)
     parser.add_argument('--wd', type=float, default=0.0)
+    parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--hs', type=int, default=2048)
     parser.add_argument('--cam_lambda1', type=float, default=0.1)
     parser.add_argument('--cam_lambda2', type=float, default=0.01)
     parser.add_argument('--split', type=int, default=1024)
+    parser.add_argument('--fs_randomsplit', default=False, action="store_true")
     parser.add_argument('--compshare_lambda', type=float, default=5.0)
     parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--modelpath', type=str, default=None)
-    parser.add_argument('--pretrainedpath', type=str)
+    parser.add_argument('--pretrainedpath', type=str, default=None)
     parser.add_argument('--outdir', type=str, default='/n/fs/context-scr/COCOStuff/save')
     parser.add_argument('--labels_train', type=str, default='/n/fs/context-scr/COCOStuff/labels_train.pkl')
     parser.add_argument('--labels_val', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
@@ -70,7 +72,7 @@ def main():
     classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'],
                                        modelpath=arg['modelpath'], hidden_size=arg['hs'], learning_rate=arg['lr'],
                                        attribdecorr=(arg['model']=='attribdecorr'), compshare_lambda=arg['compshare_lambda'])
-    classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=0.9, weight_decay=arg['wd'])
+    classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=arg['momentum'], weight_decay=arg['wd'])
 
     if arg['model'] != 'baseline':
         classifier.epoch = 0 # Reset epoch for stage 2 training
@@ -79,15 +81,25 @@ def main():
     if arg['model'] == 'attribdecorr':
         pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'],
-                                               momentum=0.9, weight_decay=arg['wd'])
+                                               momentum=arg['momentum'], weight_decay=arg['wd'])
 
     # Calculate loss weights for the class-balancing and feature-splitting methods
+    alpha_min = 1.0
+    if arg['dataset'] in ['COCOStuff', 'AwA']:
+        alpha_min = 3.0
+    if arg['dataset'] == 'DeepFashion':
+        alpha_min = 5.0
     if arg['model'] == 'classbalancing':
         weight = calculate_classbalancing_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped, beta=0.99)
         weight = weight.to(arg['device'])
     if arg['model'] in ['featuresplit', 'fs_weighted']:
-        weight = calculate_featuresplit_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped)
+        weight = calculate_featuresplit_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped, alpha_min=alpha_min)
         weight = weight.to(arg['device'])
+        if arg['fs_randomsplit']:
+            np.random.seed(1)
+            s_indices = np.random.choice(2048, arg['split'], replace=False)
+        else:
+            s_indices = None
 
     # Hook feature extractor if necessary
     if arg['model'] == 'attribdecorr':
@@ -99,6 +111,15 @@ def main():
             pretrained_net.model._modules['module'].resnet.avgpool.register_forward_hook(hook_pretrained_features)
         else:
             pretrained_net.model._modules['resnet'].avgpool.register_forward_hook(hook_pretrained_features)
+    if arg['model'] == 'featuresplit':
+        print('Registering classifier features hook for feature-split training')
+        classifier_features = []
+        def hook_classifier_features(module, input, output):
+            classifier_features.append(output.squeeze())
+        if torch.cuda.device_count() > 1:
+            classifier.model._modules['module'].resnet.avgpool.register_forward_hook(hook_classifier_features)
+        else:
+            classifier.model._modules['resnet'].avgpool.register_forward_hook(hook_classifier_features)
     if arg['model'] == 'cam':
         print('Registering conv feature hooks for CAM training')
         classifier_features = []
@@ -127,7 +148,7 @@ def main():
         if arg['model'] != 'attribdecorr':
             if i == arg['drop']:
                 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
-                                                       momentum=0.9, weight_decay=arg['wd'])
+                                                       momentum=arg['momentum'], weight_decay=arg['wd'])
 
         if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased']:
             train_loss_list = classifier.train(trainset)
@@ -145,14 +166,13 @@ def main():
                 pretrained_features, classifier_features, lambda1=arg['cam_lambda1'], lambda2=arg['cam_lambda2'])
         if arg['model'] == 'featuresplit':
             if i == 0: xs_prev_ten = []
-            train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped,
-                                                                         weight, xs_prev_ten, split=arg['split'])
+            train_loss_list, xs_prev_ten, loss_non_list, loss_exc_list = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=arg['split'])
         if arg['model'] == 'fs_weighted':
             train_loss_list = classifier.train_fs_weighted(trainset, biased_classes_mapped, weight)
         if arg['model'] == 'fs_noweighted':
             if i == 0: xs_prev_ten = []
             train_loss_list, xs_prev_ten = classifier.train_fs_noweighted(trainset, biased_classes_mapped,
-                                                                        None, xs_prev_ten, split=arg['split'])
+                                                                        None, xs_prev_ten, s_indices, split=arg['split'])
 
         # Save the model
         if (i + 1) % 1 == 0:
@@ -179,6 +199,9 @@ def main():
             tb.add_scalar('Loss/L_O', np.mean(lo_list), i)
             tb.add_scalar('Loss/L_R', np.mean(lr_list), i)
             tb.add_scalar('Loss/L_BCE', np.mean(lbce_list), i)
+        if arg['model'] == 'featuresplit':
+            tb.add_scalar('Loss/L_non', np.mean(loss_non_list), i)
+            tb.add_scalar('Loss/L_exc', np.mean(loss_exc_list), i)
         loss_epoch_list.append(np.mean(val_loss_list))
 
         # Calculate and record mAP

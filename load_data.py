@@ -36,7 +36,7 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
             for b in biased_classes_mapped.keys():
                 c = biased_classes_mapped[b]
                 if img_labels[img_path][b] == 1:
-                    img_labels[img_path][c] == 0
+                    img_labels[img_path][c] = 0
 
     # Strong baseline - remove co-occuring images
     if removecimages:
@@ -48,9 +48,12 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
                     remove_img_paths.append(img_path)
                     break
 
+        print('Removing {} co-occur images from {} total training images'.format(len(remove_img_paths), len(img_labels)), flush=True)
         for remove_img_path in remove_img_paths:
             del img_labels[remove_img_path]
             img_paths.remove(remove_img_path)
+        print('{}/{} training images remaining'.format(len(img_paths), len(img_labels)), flush=True)
+
 
     # Strong baseline - split biased category into exclusive and co-occuring
     if splitbiased:
@@ -117,7 +120,7 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
     return loader
 
 # Calculate weights used in the feature-splitting method
-def calculate_featuresplit_weight(labels_path, nclasses, biased_classes_mapped):
+def calculate_featuresplit_weight(labels_path, nclasses, biased_classes_mapped, alpha_min=3):
 
     labels = pickle.load(open(labels_path, 'rb'))
 
@@ -131,8 +134,11 @@ def calculate_featuresplit_weight(labels_path, nclasses, biased_classes_mapped):
             elif labels[key][b]==1 and labels[key][c]==0:
                 exclusive += 1
         alpha = np.sqrt(cooccur/exclusive)
-        if alpha > 1:
+        if alpha > alpha_min:
             w[b] = alpha
+        else:
+            w[b] = alpha_min
+            print('b {}: alpha {} replaced with {}'.format(b, alpha, alpha_min))
 
     return w
 
