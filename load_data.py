@@ -48,9 +48,12 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
                     remove_img_paths.append(img_path)
                     break
 
+        print('Removing {} co-occur images from {} total training images'.format(len(remove_img_paths), len(img_labels)), flush=True)
         for remove_img_path in remove_img_paths:
             del img_labels[remove_img_path]
             img_paths.remove(remove_img_path)
+        print('{}/{} training images remaining'.format(len(img_paths), len(img_labels)), flush=True)
+
 
     # Strong baseline - split biased category into exclusive and co-occuring
     if splitbiased:
