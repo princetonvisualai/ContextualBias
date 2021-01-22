@@ -735,25 +735,22 @@ class multilabel_classifier():
                 if len(xs_prev_ten) > 0:
                     xs_mean = torch.cat(xs_prev_ten).mean(0)
                     x_exc[:, split:] = xs_mean.detach()
-
-                # Create a loss weight tensor
-                #weight_tensor = torch.ones_like(out_exc)
-                weight_tensor = torch.ones(x_exc.shape[0], 1).to(device=self.device, dtype=self.dtype)
-                exclusive_unique_list = sorted(list(set(exclusive_list)))
-                for k in range(len(exclusive_list)):
-                    m = exclusive_unique_list.index(exclusive_list[k])
-                    b = exclusive_classes[k]
-                    #weight_tensor[m, b] = weight[b]
-                    weight_tensor[m] = weight[b]
                 
                 # Get the loss
                 out_exc = self.model.resnet.fc(x_exc)
                 criterion = torch.nn.BCEWithLogitsLoss(weight=weight_tensor)
-                #loss_exc_tensor = criterion(out_exc, labels[exclusive])
+                loss_exc_tensor = criterion(out_exc, labels[exclusive])
 
+                # Create a loss weight tensor
+                weight_tensor = torch.ones_like(out_exc)
+                exclusive_unique_list = sorted(list(set(exclusive_list)))
+                for k in range(len(exclusive_list)):
+                    m = exclusive_unique_list.index(exclusive_list[k])
+                    b = exclusive_classes[k]
+                    weight_tensor[m, b] = weight[b]
+                
                 # Compute the final loss and the gradients
-                #loss_exc = (weight_tensor * loss_exc_tensor).mean()
-                loss_exc = criterion(out_exc, labels[exclusive])
+                loss_exc = (weight_tensor * loss_exc_tensor).mean()
                 loss_exc.backward()
 
                 # Zero out Ws gradients and make an update

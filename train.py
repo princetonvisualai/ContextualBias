@@ -80,11 +80,16 @@ def main():
                                                momentum=0.9, weight_decay=arg['wd'])
 
     # Calculate loss weights for the class-balancing and feature-splitting methods
+    alpha_min = 1.0
+    if arg['dataset'] in ['COCOStuff', 'AwA']:
+        alpha_min = 3.0
+    if arg['dataset'] == 'DeepFashion':
+        alpha_min = 5.0
     if arg['model'] == 'classbalancing':
         weight = calculate_classbalancing_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped, beta=0.99)
         weight = weight.to(arg['device'])
     if arg['model'] in ['featuresplit', 'fs_weighted']:
-        weight = calculate_featuresplit_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped)
+        weight = calculate_featuresplit_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped, alpha_min=alpha_min)
         weight = weight.to(arg['device'])
 
     # Hook feature extractor if necessary
