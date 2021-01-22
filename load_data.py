@@ -120,11 +120,13 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
     return loader
 
 # Calculate weights used in the feature-splitting method
-def calculate_featuresplit_weight(labels_path, nclasses, biased_classes_mapped):
+def calculate_featuresplit_weight(labels_path, nclasses, biased_classes_mapped, alpha_min=3):
 
     labels = pickle.load(open(labels_path, 'rb'))
 
     w = torch.ones(nclasses)
+    greater_than_alpha_min = 0
+    less_than_alpha_min = 0
     for b in biased_classes_mapped.keys():
         c = biased_classes_mapped[b]
         exclusive = 0; cooccur = 0
@@ -134,8 +136,15 @@ def calculate_featuresplit_weight(labels_path, nclasses, biased_classes_mapped):
             elif labels[key][b]==1 and labels[key][c]==0:
                 exclusive += 1
         alpha = np.sqrt(cooccur/exclusive)
-        if alpha > 1:
+        if alpha > alpha_min:
+            greater_than_alpha_min += 1
             w[b] = alpha
+        else:
+            less_than_alpha_min += 1
+            w[b] = alpha_min
+
+    print('Greater than alpha_min: {}'.format(greater_than_alpha_min), flush=True)
+    print('Less than alpha_min: {}'.format(less_than_alpha_min), flush=True) 
 
     return w
 
