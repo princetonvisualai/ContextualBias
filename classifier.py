@@ -659,8 +659,10 @@ class multilabel_classifier():
                     xs_mean = torch.cat(xs_prev_ten).mean(0)
                     x_exc[:, s_indices] = xs_mean.detach()
 
-                # Get the loss
-                out_exc = self.model.resnet.fc(x_exc)
+                # Compute y = xs Ws + xo Wo + bias
+                out_exc = torch.matmul(x_exc[:, s_indices], self.model.resnet.fc.weight[:, s_indices].t()) + torch.matmul(x_exc[:, ~s_indices], self.model.resnet.fc.weight[:, ~s_indices].t()) + self.model.resnet.fc.bias
+
+                # Compute the loss
                 criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
                 loss_exc_tensor = criterion(out_exc, labels[exclusive])
 
@@ -685,12 +687,16 @@ class multilabel_classifier():
                 else:
                     self.model.resnet.fc.weight.grad[np.ix_(b_list, s_indices)] = 0.
                     assert not (self.model.resnet.fc.weight.grad[np.ix_(b_list, s_indices)] != 0.).sum() > 0
+
+                old_ws = self.model.resnet.fc.weight[np.ix_(b_list, s_indices)].detach()
                 self.optimizer.step()
+                assert (old_ws != self.model.resnet.fc.weight[np.ix_(b_list, s_indices)]).sum() == 0
 
                 l_exc = loss_exc.item()
             else:
                 l_exc = 0.
 
+            # Print/save losses
             loss = (l_non*(~exclusive).sum() + l_exc*exclusive.sum())/exclusive.shape[0]
             loss_list.append(loss.item())
             loss_non_list.append(l_non)
