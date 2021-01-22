@@ -682,11 +682,6 @@ class multilabel_classifier():
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.model.train()
 
-        # Get weights for last fc layer
-        classifier_fc_weight = self.model.resnet.fc.weight
-        classifier_fc_bias = self.model.resnet.fc.bias
-        #print('classifier_fc_weight:', classifier_fc_weight.shape, flush=True)
-
         loss_list = []
         for i, (images, labels, ids) in enumerate(loader):
             images = images.to(device=self.device, dtype=self.dtype)
@@ -712,10 +707,10 @@ class multilabel_classifier():
                 x_non = classifier_features[0]
                 if len(x_non.shape) < 2:
                     x_non = x_non.unsqueeze(0)
-                #print('x_non:', x_non.shape, flush=True)
                 criterion = torch.nn.BCEWithLogitsLoss()
                 loss_non = criterion(out_non, labels[~exclusive])
                 loss_non.backward()
+                self.optimizer.step()
                 del out_non
                 
                 # Keep track of xs
@@ -733,40 +728,41 @@ class multilabel_classifier():
                 classifier_features.clear()
                 self.forward(images[exclusive])
                 x_exc = classifier_features[0]
-                #print('x_exc:', x_exc.shape, flush=True)
+                if len(x_exc.shape) < 2:
+                    x_exc = x_exc.unsqueeze(0)
 
                 # Replace the second half of the features with xs_mean
                 if len(xs_prev_ten) > 0:
                     xs_mean = torch.cat(xs_prev_ten).mean(0)
                     x_exc[:, split:] = xs_mean.detach()
 
-                # Get the loss
-                out_exc = torch.matmul(x_exc, classifier_fc_weight.t()) + classifier_fc_bias
-                #print('out_exc:', out_exc.shape, flush=True)
-                criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
-                loss_exc_tensor = criterion(out_exc, labels[exclusive])
-
                 # Create a loss weight tensor
-                weight_tensor = torch.ones_like(out_exc)
+                #weight_tensor = torch.ones_like(out_exc)
+                weight_tensor = torch.ones(x_exc.shape[0], 1).to(device=self.device, dtype=self.dtype)
                 exclusive_unique_list = sorted(list(set(exclusive_list)))
                 for k in range(len(exclusive_list)):
                     m = exclusive_unique_list.index(exclusive_list[k])
                     b = exclusive_classes[k]
-                    weight_tensor[m, b] = weight[b]
+                    #weight_tensor[m, b] = weight[b]
+                    weight_tensor[m] = weight[b]
+                
+                # Get the loss
+                out_exc = self.model.resnet.fc(x_exc)
+                criterion = torch.nn.BCEWithLogitsLoss(weight=weight_tensor)
+                #loss_exc_tensor = criterion(out_exc, labels[exclusive])
 
                 # Compute the final loss and the gradients
-                loss_exc = (weight_tensor * loss_exc_tensor).mean()
+                #loss_exc = (weight_tensor * loss_exc_tensor).mean()
+                loss_exc = criterion(out_exc, labels[exclusive])
                 loss_exc.backward()
 
                 # Zero out Ws gradients and make an update
                 b_list = [i in exclusive_classes for i in range(self.nclasses)]
                 if torch.cuda.device_count() > 1:
                     self.model._modules['module'].resnet.fc.weight.grad[b_list, split:] = 0.
-                    self.model._modules['module'].resnet.fc.bias.grad[split:] = 0.
                     assert not (self.model._modules['module'].resnet.fc.weight.grad[b_list, split:] != 0.).sum() > 0
                 else:
                     self.model.resnet.fc.weight.grad[b_list, split:] = 0.
-                    self.model.resnet.fc.bias.grad[split:] = 0.
                     assert not (self.model.resnet.fc.weight.grad[b_list, split:] != 0.).sum() > 0
                 self.optimizer.step()
 
