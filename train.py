@@ -27,7 +27,7 @@ def main():
     parser.add_argument('--compshare_lambda', type=float, default=5.0)
     parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--modelpath', type=str, default=None)
-    parser.add_argument('--pretrainedpath', type=str)
+    parser.add_argument('--pretrainedpath', type=str, default=None)
     parser.add_argument('--outdir', type=str, default='/n/fs/context-scr/COCOStuff/save')
     parser.add_argument('--labels_train', type=str, default='/n/fs/context-scr/COCOStuff/labels_train.pkl')
     parser.add_argument('--labels_val', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
