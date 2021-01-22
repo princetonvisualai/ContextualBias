@@ -738,7 +738,7 @@ class multilabel_classifier():
                 
                 # Get the loss
                 out_exc = self.model.resnet.fc(x_exc)
-                criterion = torch.nn.BCEWithLogitsLoss(weight=weight_tensor)
+                criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
                 loss_exc_tensor = criterion(out_exc, labels[exclusive])
 
                 # Create a loss weight tensor
