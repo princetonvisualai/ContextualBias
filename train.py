@@ -24,6 +24,7 @@ def main():
     parser.add_argument('--wd', type=float, default=0.0)
     parser.add_argument('--hs', type=int, default=2048)
     parser.add_argument('--split', type=int, default=1024)
+    parser.add_argument('--fs_randomsplit', default=False, action='store_true')
     parser.add_argument('--compshare_lambda', type=float, default=5.0)
     parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--modelpath', type=str, default=None)
@@ -68,7 +69,10 @@ def main():
     classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'],
                                        modelpath=arg['modelpath'], hidden_size=arg['hs'], learning_rate=arg['lr'],
                                        attribdecorr=(arg['model']=='attribdecorr'), compshare_lambda=arg['compshare_lambda'])
-    classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=0.9, weight_decay=arg['wd'])
+    if arg['model'] == 'featuresplit':
+        classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=0, weight_decay=arg['wd'])
+    else: 
+        classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=0.9, weight_decay=arg['wd'])
 
     if arg['model'] != 'baseline':
         classifier.epoch = 0 # Reset epoch for stage 2 training
@@ -91,6 +95,11 @@ def main():
     if arg['model'] in ['featuresplit', 'fs_weighted']:
         weight = calculate_featuresplit_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped, alpha_min=alpha_min)
         weight = weight.to(arg['device'])
+        if arg['fs_randomsplit']:
+            np.random.seed(1)
+            s_indices = np.random.choice(2048, arg['split'], replace=False)
+        else:
+            s_indices = None
 
     # Hook feature extractor if necessary
     if arg['model'] == 'attribdecorr':
@@ -162,7 +171,7 @@ def main():
             train_loss_list = classifier.train_cam(trainset, pretrained_net, biased_classes_mapped, pretrained_features, classifier_features)
         if arg['model'] == 'featuresplit':
             if i == 0: xs_prev_ten = []
-            train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten, classifier_features, split=arg['split'])
+            train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=arg['split'])
         if arg['model'] == 'fs_weighted':
             train_loss_list = classifier.train_fs_weighted(trainset, biased_classes_mapped, weight)
         if arg['model'] == 'fs_noweighted':
