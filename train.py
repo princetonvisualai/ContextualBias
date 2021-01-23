@@ -35,6 +35,7 @@ def main():
     parser.add_argument('--outdir', type=str, default='/n/fs/context-scr/COCOStuff/save')
     parser.add_argument('--labels_train', type=str, default='/n/fs/context-scr/COCOStuff/labels_train.pkl')
     parser.add_argument('--labels_val', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
+    parser.add_argument('--seed', type=int, default=999)
     parser.add_argument('--device', default=torch.device('cuda:0'))
     parser.add_argument('--dtype', default=torch.float32)
 
@@ -44,6 +45,13 @@ def main():
     arg['outdir'] = '{}/{}'.format(arg['outdir'], arg['model'])
     print('\n', arg, '\n')
     print('\nTraining with {} GPUs'.format(torch.cuda.device_count()))
+
+    # Set random seed
+    random.seed(arg['seed'])
+    np.random.seed(sarg['seed'])
+    torch.manual_seed(arg['seed'])
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     # Create output directory
     if not path.isdir(arg['outdir']):
