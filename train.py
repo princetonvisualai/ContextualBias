@@ -1,4 +1,4 @@
-import pickle, time, argparse
+import pickle, time, argparse, random
 from os import path, makedirs
 import numpy as np
 import torch
@@ -22,9 +22,12 @@ def main():
     parser.add_argument('--lr', type=float, default=0.1)
     parser.add_argument('--drop', type=int, default=60)
     parser.add_argument('--wd', type=float, default=0.0)
+    parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--hs', type=int, default=2048)
+    parser.add_argument('--cam_lambda1', type=float, default=0.1)
+    parser.add_argument('--cam_lambda2', type=float, default=0.01)
     parser.add_argument('--split', type=int, default=1024)
-    parser.add_argument('--fs_randomsplit', default=False, action='store_true')
+    parser.add_argument('--fs_randomsplit', default=False, action="store_true")
     parser.add_argument('--compshare_lambda', type=float, default=5.0)
     parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--modelpath', type=str, default=None)
@@ -32,6 +35,7 @@ def main():
     parser.add_argument('--outdir', type=str, default='/n/fs/context-scr/COCOStuff/save')
     parser.add_argument('--labels_train', type=str, default='/n/fs/context-scr/COCOStuff/labels_train.pkl')
     parser.add_argument('--labels_val', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
+    parser.add_argument('--seed', type=int, default=999)
     parser.add_argument('--device', default=torch.device('cuda:0'))
     parser.add_argument('--dtype', default=torch.float32)
 
@@ -41,6 +45,13 @@ def main():
     arg['outdir'] = '{}/{}'.format(arg['outdir'], arg['model'])
     print('\n', arg, '\n')
     print('\nTraining with {} GPUs'.format(torch.cuda.device_count()))
+
+    # Set random seed
+    random.seed(arg['seed'])
+    np.random.seed(arg['seed'])
+    torch.manual_seed(arg['seed'])
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     # Create output directory
     if not path.isdir(arg['outdir']):
@@ -61,18 +72,15 @@ def main():
                               B=arg['train_batchsize'], train=True,
                               removeclabels=removeclabels, removecimages=removecimages,
                               splitbiased=splitbiased)
-    valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped, 
-                             B=arg['val_batchsize'], train=False, 
+    valset = create_dataset(arg['dataset'], arg['labels_val'], biased_classes_mapped,
+                             B=arg['val_batchsize'], train=False,
                              splitbiased=splitbiased)
 
     # Initialize classifier
     classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'],
                                        modelpath=arg['modelpath'], hidden_size=arg['hs'], learning_rate=arg['lr'],
                                        attribdecorr=(arg['model']=='attribdecorr'), compshare_lambda=arg['compshare_lambda'])
-    if arg['model'] == 'featuresplit':
-        classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=0, weight_decay=arg['wd'])
-    else: 
-        classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=0.9, weight_decay=arg['wd'])
+    classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=arg['momentum'], weight_decay=arg['wd'])
 
     if arg['model'] != 'baseline':
         classifier.epoch = 0 # Reset epoch for stage 2 training
@@ -81,7 +89,7 @@ def main():
     if arg['model'] == 'attribdecorr':
         pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
         classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'],
-                                               momentum=0.9, weight_decay=arg['wd'])
+                                               momentum=arg['momentum'], weight_decay=arg['wd'])
 
     # Calculate loss weights for the class-balancing and feature-splitting methods
     alpha_min = 1.0
@@ -146,15 +154,9 @@ def main():
 
         # Reduce learning rate from 0.1 to 0.01
         if arg['model'] != 'attribdecorr':
-            if i == arg['drop'] and arg['dataset'] == 'COCOStuff':
+            if i == arg['drop']:
                 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
-                                                       momentum=0.9, weight_decay=arg['wd'])
-            if i == arg['drop'] and arg['dataset'] == 'AwA':
-                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01, 
-                                                       momentum=0.9, weight_decay=arg['wd'])
-            if i == arg['drop'] and arg['dataset'] == 'DeepFashion':
-                classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
-                                                       momentum=0.9, weight_decay=arg['wd'])
+                                                       momentum=arg['momentum'], weight_decay=arg['wd'])
 
         if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased']:
             train_loss_list = classifier.train(trainset)
@@ -168,17 +170,18 @@ def main():
             train_loss_list = classifier.train_attribdecorr(trainset, pretrained_net, biased_classes_mapped,
                                                             humanlabels_to_onehot, pretrained_features)
         if arg['model'] == 'cam':
-            train_loss_list = classifier.train_cam(trainset, pretrained_net, biased_classes_mapped, pretrained_features, classifier_features)
+            train_loss_list, lo_list, lr_list, lbce_list = classifier.train_cam(trainset, pretrained_net, biased_classes_mapped,
+                pretrained_features, classifier_features, lambda1=arg['cam_lambda1'], lambda2=arg['cam_lambda2'])
         if arg['model'] == 'featuresplit':
             if i == 0: xs_prev_ten = []
-            train_loss_list, xs_prev_ten = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=arg['split'])
+            train_loss_list, xs_prev_ten, loss_non_list, loss_exc_list = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=arg['split'])
         if arg['model'] == 'fs_weighted':
             train_loss_list = classifier.train_fs_weighted(trainset, biased_classes_mapped, weight)
         if arg['model'] == 'fs_noweighted':
             if i == 0: xs_prev_ten = []
-            train_loss_list, xs_prev_ten = classifier.train_fs_noweighted(trainset, biased_classes_mapped, 
-                                                                        None, xs_prev_ten, split=1024)
-        
+            train_loss_list, xs_prev_ten = classifier.train_fs_noweighted(trainset, biased_classes_mapped,
+                                                                        None, xs_prev_ten, s_indices, split=arg['split'])
+
         # Save the model
         if (i + 1) % 1 == 0:
             classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], classifier.epoch))
@@ -200,6 +203,13 @@ def main():
         # Record train/val loss
         tb.add_scalar('Loss/Train', np.mean(train_loss_list), i)
         tb.add_scalar('Loss/Val', np.mean(val_loss_list), i)
+        if arg['model'] == 'cam':
+            tb.add_scalar('Loss/L_O', np.mean(lo_list), i)
+            tb.add_scalar('Loss/L_R', np.mean(lr_list), i)
+            tb.add_scalar('Loss/L_BCE', np.mean(lbce_list), i)
+        if arg['model'] == 'featuresplit':
+            tb.add_scalar('Loss/L_non', np.mean(loss_non_list), i)
+            tb.add_scalar('Loss/L_exc', np.mean(loss_exc_list), i)
         loss_epoch_list.append(np.mean(val_loss_list))
 
         # Calculate and record mAP
@@ -286,7 +296,7 @@ def main():
     tb.close()
     print('Best model at {} with lowest val loss {}'.format(np.argmin(loss_epoch_list) + 1, np.min(loss_epoch_list)))
     print('Best model at {} with highest exclusive {}'.format(np.argmax(exclusive_list) + 1, np.max(exclusive_list)))
-    print('Best model at {} with highest exclusive+cooccur {}'.format(np.argmax(np.array(exclusive_list)+np.array(cooccur_list)) + 1, 
+    print('Best model at {} with highest exclusive+cooccur {}'.format(np.argmax(np.array(exclusive_list)+np.array(cooccur_list)) + 1,
                                                                       np.max(np.array(exclusive_list)+np.array(cooccur_list))))
 
 if __name__ == "__main__":

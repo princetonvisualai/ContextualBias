@@ -53,7 +53,7 @@ source /n/fs/context-scr/context/bin/activate # for RTX3090
 #  --outdir AwA/save3
 
 python train.py --dataset AwA --model featuresplit --nepoch 20 --nclasses 85 \
-  --lr 0.01 --wd 0.0 --drop 99 --split 1024 \
+  --lr 0.01 --wd 0.0 --momentum 0 --drop 99 --split 1024 \
   --val_batchsize 150 --train_batchsize 200 \
   --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
   --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
@@ -61,7 +61,7 @@ python train.py --dataset AwA --model featuresplit --nepoch 20 --nclasses 85 \
   --outdir AwA/save4/middlesplit_4
 
 #python train.py --dataset AwA --model featuresplit --nepoch 20 --nclasses 85 \
-#  --lr 0.01 --wd 0.0 --drop 20 --split 1536 \
+#  --lr 0.01 --wd 0.0 --momentum 0 --drop 20 --split 1536 \
 #  --val_batchsize 150 --train_batchsize 200 \
 #  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
 #  --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
