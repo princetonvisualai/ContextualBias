@@ -52,13 +52,13 @@ source /n/fs/context-scr/context/bin/activate # for RTX3090
 #  --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
 #  --outdir AwA/save3
 
-#python train.py --dataset AwA --model featuresplit --nepoch 20 --nclasses 85 \
-#  --lr 0.01 --wd 0.0 --drop 99 \
-#  --val_batchsize 150 --train_batchsize 200 \
-#  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
-#  --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
-#  --modelpath /n/fs/context-scr/sharonz/ContextualBias/AwA/save2/baseline/model_20.pth \
-#  --outdir AwA/save3/featuresplit_modified
+python train.py --dataset AwA --model featuresplit --nepoch 20 --nclasses 85 \
+  --lr 0.01 --wd 0.0 --drop 99 --split 1024 \
+  --val_batchsize 150 --train_batchsize 200 \
+  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
+  --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
+  --modelpath /n/fs/context-scr/sharonz/ContextualBias/AwA/save2/baseline/model_20.pth \
+  --outdir AwA/save4/middlesplit_4
 
 #python train.py --dataset AwA --model featuresplit --nepoch 20 --nclasses 85 \
 #  --lr 0.01 --wd 0.0 --drop 20 --split 1536 \
@@ -68,29 +68,29 @@ source /n/fs/context-scr/context/bin/activate # for RTX3090
 #  --modelpath /n/fs/context-scr/sharonz/ContextualBias/AwA/save2/baseline/model_20.pth \
 #  --outdir AwA/save3/featuresplit_1536
 
-#python train.py --dataset AwA --model removecimages --nepoch 20 --nclasses 85 \
-#  --lr 0.01 --wd 0.0 --drop 20 \
+#python train.py --dataset AwA --model removecimages --nepoch 40 --nclasses 85 \
+#  --lr 0.1 --wd 0.0 --drop 20 \
 #  --val_batchsize 150 --train_batchsize 200 \
 #  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
 #  --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
+#  --outdir AwA/save4
 #  --modelpath /n/fs/context-scr/sharonz/ContextualBias/AwA/save2/baseline/model_20.pth \
-#  --outdir AwA/save
 
-python train.py --dataset AwA --model removeclabels --nepoch 20 --nclasses 85 \
-  --lr 0.01 --wd 0.0 --drop 20 \
-  --val_batchsize 150 --train_batchsize 200 \
-  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
-  --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
-  --modelpath /n/fs/context-scr/sharonz/ContextualBias/AwA/save2/baseline/model_20.pth \
-  --outdir AwA/save3
-
-#python train.py --dataset AwA --model negativepenalty --nepoch 20 --nclasses 85 \
-#  --lr 0.01 --wd 0.0 --drop 20 \
+#python train.py --dataset AwA --model removeclabels --nepoch 40 --nclasses 85 \
+#  --lr 0.1 --wd 0.0 --drop 20 \
 #  --val_batchsize 150 --train_batchsize 200 \
 #  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
 #  --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
+#  --outdir AwA/save4
 #  --modelpath /n/fs/context-scr/sharonz/ContextualBias/AwA/save2/baseline/model_20.pth \
-#  --outdir AwA/save3
+
+#python train.py --dataset AwA --model negativepenalty --nepoch 40 --nclasses 85 \
+#  --lr 0.1 --wd 0.0 --drop 20 \
+#  --val_batchsize 150 --train_batchsize 200 \
+#  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
+#  --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
+#  --outdir AwA/save4
+#  --modelpath /n/fs/context-scr/sharonz/ContextualBias/AwA/save2/baseline/model_20.pth \
 
 #python train.py --dataset AwA --model splitbiased --nepoch 40 --nclasses 85 \
 #  --lr 0.1 --wd 0.0 --drop 10 \
@@ -99,29 +99,29 @@ python train.py --dataset AwA --model removeclabels --nepoch 20 --nclasses 85 \
 #  --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
 #  --outdir AwA/save
 
-#python train.py --dataset AwA --model classbalancing --nepoch 20 --nclasses 85 \
-#  --lr 0.01 --wd 0.0 --drop 20 \
+#python train.py --dataset AwA --model classbalancing --nepoch 40 --nclasses 85 \
+#  --lr 0.1 --wd 0.0 --drop 20 \
 #  --val_batchsize 150 --train_batchsize 200 \
 #  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
 #  --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
+#  --outdir AwA/save4
 #  --modelpath /n/fs/context-scr/sharonz/ContextualBias/AwA/save2/baseline/model_20.pth \
-#  --outdir AwA/save3
 
-#python train.py --dataset AwA --model weighted --nepoch 20 --nclasses 85 \
-#  --lr 0.01 --wd 0.0 --drop 20 \
+#python train.py --dataset AwA --model weighted --nepoch 40 --nclasses 85 \
+#  --lr 0.1 --wd 0.0 --drop 20 \
 #  --val_batchsize 150 --train_batchsize 200 \
 #  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
 #  --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
+#  --outdir AwA/save4
 #  --modelpath /n/fs/context-scr/sharonz/ContextualBias/AwA/save2/baseline/model_20.pth \
-#  --outdir AwA/save3
 
-#python train.py --dataset AwA --model attribdecorr --nepoch 20 --nclasses 85 \
-#  --lr 0.01 --wd 0.0 --drop 20 --compshare_lambda 2.0 \
+#python train.py --dataset AwA --model attribdecorr --nepoch 40 --nclasses 85 \
+#  --lr 0.1 --wd 0.0 --drop 20 --compshare_lambda 2.0 \
 #  --val_batchsize 150 --train_batchsize 200 \
 #  --labels_train /n/fs/context-scr/AwA/labels_train.pkl \
 #  --labels_val /n/fs/context-scr/AwA/labels_train_20.pkl \
+#  --outdir AwA/save4
 #  --pretrainedpath /n/fs/context-scr/sharonz/ContextualBias/AwA/save2/baseline/model_20.pth \
-#  --outdir AwA/save3
 
 
 ### DeepFashion
