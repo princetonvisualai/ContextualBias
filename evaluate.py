@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--batchsize', type=int, default=170)
     parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--hs', type=int, default=2048)
+    parser.add_argument('--ours', type=bool, default=False)
     parser.add_argument('--device', default=torch.device('cuda'))
     parser.add_argument('--dtype', default=torch.float32)
     arg = vars(parser.parse_args())
@@ -29,7 +30,10 @@ def main():
     print('\n', arg, '\n')
 
     # Load utility files
-    biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+    if arg['ours']:
+        biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/our_biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+    else:
+        biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
     if arg['dataset'] == 'COCOStuff':
         unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
     humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))

@@ -27,6 +27,9 @@ from load_data import *
 
 def get_heatmap(CAM_map, img):
     CAM_map = cv2.resize(CAM_map, (img.shape[0], img.shape[1]))
+    CAM_map = CAM_map - np.min(CAM_map)
+    CAM_map = CAM_map / np.max(CAM_map)
+    CAM_map = 1.0 - CAM_map # make sure colormap is not reversed
     heatmap = cv2.applyColorMap(np.uint8(255 * CAM_map), cv2.COLORMAP_JET)
     heatmap = np.float32(heatmap) / 255
     heatmap = heatmap + np.float32(img)
@@ -45,10 +48,30 @@ def returnCAM(feature_conv, weight_softmax, class_labels, device):
         output_cam = torch.cat([output_cam, cam_img.unsqueeze(0)], dim=0)
     return output_cam
 
+def returnCAM_featuresplit(feature_conv, weight_softmax, class_labels, device, split=1024):
+    feature_conv_o = feature_conv[:,:split,:,:]
+    feature_conv_s = feature_conv[:,split:,:,:]
+    bz, nc, h, w = feature_conv.shape
+    output_cam = torch.Tensor(0, 7, 7).to(device=device)
+    for idx in class_labels:
+        cam_o = torch.mm(weight_softmax[idx][:split].unsqueeze(0), feature_conv_o.reshape((split, h*w)))
+        cam_s = torch.mm(weight_softmax[idx][split:].unsqueeze(0), feature_conv_s.reshape((nc-split, h*w)))
+        cam_o = cam_o.reshape(h, w)
+        cam_s = cam_s.reshape(h, w)
+        cam_o = cam_o - cam_o.min()
+        cam_s = cam_s - cam_s.min()
+        cam_o_img = cam_o / cam_o.max()
+        cam_s_img = cam_s / cam_s.max()
+        output_cam = torch.cat([output_cam, cam_o_img.unsqueeze(0), cam_s_img.unsqueeze(0)], dim=0)
+    return output_cam
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--modelpath', type=str, default=None)
     parser.add_argument('--img_ids', type=int, nargs='+', default=0)
+    parser.add_argument('--outdir', type=str, default=None)
+    parser.add_argument('--featuresplit', type=bool, default=False)
+    parser.add_argument('--split', type=int, default=1024)
     parser.add_argument('--device', default=torch.device('cuda'))
     parser.add_argument('--dtype', default=torch.float32)
     arg = vars(parser.parse_args())
@@ -85,7 +108,10 @@ def main():
                 continue
         original_img = Image.open(img_path).convert('RGB')
 
-        outdir = 'COCOStuff/CAMs/{}'.format(img_id)
+        if arg['outdir'] != None:
+            outdir = '{}/{}'.format(arg['outdir'], img_id)
+        else:
+            outdir = str(img_id)
         if not os.path.exists(outdir):
             os.makedirs(outdir)
         print('Processing img {}'.format(img_id), flush=True)
@@ -109,13 +135,17 @@ def main():
                 class_labels = torch.zeros(1)
         class_labels = torch.flatten(torch.nonzero(class_labels))
 
+        classifier_features.clear()
         img = transform(original_img)
         norm_img = normalize(img)
         norm_img = norm_img.to(device=classifier.device, dtype=classifier.dtype)
         norm_img = norm_img.unsqueeze(0)
         x = classifier.forward(norm_img)
 
-        CAMs = returnCAM(classifier_features[0], classifier_softmax_weight, class_labels, arg['device'])
+        if arg['featuresplit']:
+            CAMs = returnCAM_featuresplit(classifier_features[0], classifier_softmax_weight, class_labels, arg['device'], split=arg['split'])
+        else: 
+            CAMs = returnCAM(classifier_features[0], classifier_softmax_weight, class_labels, arg['device'])
         CAMs = CAMs.detach().cpu().numpy()
 
         # Save CAM heatmap
@@ -124,16 +154,36 @@ def main():
 
         img = np.moveaxis(img.detach().cpu().numpy(), 0, -1)
         class_labels = class_labels.cpu().detach().numpy()
-        for i in range(len(class_labels)): 
-            heatmap = get_heatmap(CAMs[i], img)
-            plt.figure()
-            plt.imshow(heatmap)
-            plt.axis('off')
-            plt.title(onehot_to_humanlabels[class_labels[i]])
-            humanlabel = onehot_to_humanlabels[class_labels[i]].replace(' ', '+')
-            plt.savefig('{}/{}_{}.png'.format(outdir, img_name, humanlabel))
-            plt.show()
-            plt.close()
+        if arg['featuresplit']:
+            for i in range(len(class_labels)):
+                heatmap_o = get_heatmap(CAMs[2*i], img)
+                heatmap_s = get_heatmap(CAMs[2*i+1], img)
+                
+                fig = plt.figure()
+                fig_o = fig.add_subplot(121)
+                fig_o.imshow(heatmap_o)
+                fig_o.axis('off')
+                fig_o.set_title('{} ({})'.format(onehot_to_humanlabels[class_labels[i]], 'Wo'))
+                
+                fig_s = fig.add_subplot(122)
+                fig_s.imshow(heatmap_s)
+                fig_s.axis('off')
+                fig_s.set_title('{} ({})'.format(onehot_to_humanlabels[class_labels[i]], 'Ws'))
+                humanlabel = onehot_to_humanlabels[class_labels[i]].replace(' ', '+')
+                plt.savefig('{}/{}_{}.png'.format(outdir, img_name, humanlabel))
+                plt.show()
+                plt.close()
+        else:
+            for i in range(len(class_labels)): 
+                heatmap = get_heatmap(CAMs[i], img)
+                plt.figure()
+                plt.imshow(heatmap)
+                plt.axis('off')
+                plt.title(onehot_to_humanlabels[class_labels[i]])
+                humanlabel = onehot_to_humanlabels[class_labels[i]].replace(' ', '+')
+                plt.savefig('{}/{}_{}.png'.format(outdir, img_name, humanlabel))
+                plt.show()
+                plt.close()
 
 if __name__ == '__main__':
     main()

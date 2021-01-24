@@ -613,11 +613,11 @@ class multilabel_classifier():
             # Identify exclusive instances
             exclusive = torch.zeros((labels.shape[0]), dtype=bool)
             exclusive_list = [] # Image indices with exclusives
-            exclusive_classes = [] # (b, c) pair for the above images
+            exclusive_classes = [] # biased category b for the above images
             for m in range(labels.shape[0]):
                 for b in biased_classes_mapped.keys():
                     c = biased_classes_mapped[b]
-                    if (labels[m,b]==1) & (labels[m,c]==0):
+                    if (labels[m,b]==1) and (labels[m,c]==0):
                         exclusive[m] = True
                         exclusive_list.append(m)
                         exclusive_classes.append(b)
@@ -635,7 +635,7 @@ class multilabel_classifier():
                 loss_non.backward()
                 self.optimizer.step()
                 del out_non
-
+                
                 # Keep track of xs
                 xs_prev_ten.append(x_non[:, s_indices].detach())
                 if len(xs_prev_ten) > 10:
@@ -660,9 +660,11 @@ class multilabel_classifier():
                     x_exc[:, s_indices] = xs_mean.detach()
 
                 # Compute y = xs Ws + xo Wo + bias
-                out_exc = torch.matmul(x_exc[:, s_indices], self.model.resnet.fc.weight[:, s_indices].t()) + torch.matmul(x_exc[:, ~s_indices], self.model.resnet.fc.weight[:, ~s_indices].t()) + self.model.resnet.fc.bias
-
-                # Compute the loss
+                xs_Ws = torch.matmul(x_exc[:, s_indices], self.model.resnet.fc.weight[:, s_indices].t())
+                xo_Wo = torch.matmul(x_exc[:, ~s_indices], self.model.resnet.fc.weight[:, ~s_indices].t())
+                out_exc = xs_Ws + xo_Wo + self.model.resnet.fc.bias
+                
+                # Get the loss
                 criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
                 loss_exc_tensor = criterion(out_exc, labels[exclusive])
 
@@ -673,7 +675,7 @@ class multilabel_classifier():
                     m = exclusive_unique_list.index(exclusive_list[k])
                     b = exclusive_classes[k]
                     weight_tensor[m, b] = weight[b]
-
+                
                 # Compute the final loss and the gradients
                 loss_exc = (weight_tensor * loss_exc_tensor).mean()
                 loss_exc.backward()
@@ -687,7 +689,7 @@ class multilabel_classifier():
                 else:
                     self.model.resnet.fc.weight.grad[np.ix_(b_list, s_indices)] = 0.
                     assert not (self.model.resnet.fc.weight.grad[np.ix_(b_list, s_indices)] != 0.).sum() > 0
-
+                
                 old_ws = self.model.resnet.fc.weight[np.ix_(b_list, s_indices)].detach()
                 self.optimizer.step()
                 assert (old_ws != self.model.resnet.fc.weight[np.ix_(b_list, s_indices)]).sum() == 0
