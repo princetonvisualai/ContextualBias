@@ -31,9 +31,30 @@ This is a non-official, in-progress implementation of [Don't Judge an Object by 
 - **Output**: Scores saved in evalresults
 - **Description**: Evaluates a trained model on the exclusive and co-occur test distributions.
 
+```evaluate.py```
+- **Description**: Evaluates UnRel dataset on the exclusive and co-occur test distributions, prints mAP
+
+```get_cams.py```
+- **Input**: COCOStuff image IDs, path of model to visualize
+- **Output**: Saved CAM plot
+- **Description**: Visualize the CAM heatmap to understand what the model is learning
+
+```recall.py```
+- **Description**: Top 3 recall function for DeepFashion evaluation
+
+```weight_similarity.py```
+- **Description**: Calculating cosine similarity between W_o and W_s to verify that they capture distinct information
+
 ## Utils
+```create_evaldata.py```
+- **Input**: dataset type
+- **Output**: biased_classes.pkl, biased_classes_mapped.pkl, unbiased_classes_mapped.pkl
+- **Description**: Create evaluation data, specifically identifying the biased classes from the original paper
+
 ```load_data.py```
 - **Description**: Creates dataset loaders and calculates loss weights for class-balancing and feature-split methods.
 
 ```classifier.py```
 - **Description**: Defines the multi-label classifier with various training methods. 
+
+
