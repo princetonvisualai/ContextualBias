@@ -48,7 +48,7 @@ def main():
 
     # Set random seed
     random.seed(arg['seed'])
-    np.random.seed(sarg['seed'])
+    np.random.seed(arg['seed'])
     torch.manual_seed(arg['seed'])
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
