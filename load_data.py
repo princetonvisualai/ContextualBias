@@ -142,7 +142,7 @@ def calculate_featuresplit_weight(labels_path, nclasses, biased_classes_mapped, 
         else:
             less_than_alpha_min += 1
             w[b] = alpha_min
-            print('b {}: alpha {} replaced with {}'.format(b, alpha, alpha_min))
+            print('b {:2d}: alpha {:.4f} replaced with {}'.format(b, alpha, alpha_min))
 
     print('Greater than alpha_min: {}'.format(greater_than_alpha_min), flush=True)
     print('Less than alpha_min: {}'.format(less_than_alpha_min), flush=True) 
