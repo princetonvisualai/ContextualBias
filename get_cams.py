@@ -101,7 +101,7 @@ def main():
         img_name = img_path.split('/')[-1][:-4]
         if not os.path.exists(img_path):
             # Try searching in val set
-            img_path = '/n/fs/visualai-scr/Data/Coco/2014data/train2014/COCO_train2014_{:012d}.jpg'.format(img_id)
+            img_path = '/n/fs/visualai-scr/Data/Coco/2014data/val2014/COCO_val2014_{:012d}.jpg'.format(img_id)
             img_name = img_path.split('/')[-1][:-4]
             if not os.path.exists(img_path):
                 print('WARNING: Could not find img {}'.format(img_id), flush=True)
