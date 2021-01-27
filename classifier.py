@@ -143,6 +143,31 @@ class multilabel_classifier():
 
         return labels_list, scores_list, loss_list
 
+    def get_prediction_examples(self, loader, b, c):
+        self.model = self.model.to(device=self.device, dtype=self.dtype)
+        self.model.eval()
+
+        success = set()
+        failures = set()
+
+        with torch.no_grad():
+            for i, (images, labels, ids) in enumerate(loader):
+                images = images.to(device=self.device, dtype=self.dtype)
+                labels = labels.to(device=self.device, dtype=self.dtype)
+
+                outputs = self.forward(images)
+                scores = torch.sigmoid(outputs)
+                preds = torch.round(scores).bool()
+                for p in range(preds.shape[0]):
+                    if preds[p,b] == labels[p,b]:
+                        success.add(ids[p])
+                    else:
+                        failures.add(ids[p])
+                print('Minibatch {}/{}: {} failures total, {} successes total'.format(i, len(loader), len(success), len(failures)), flush=True)
+
+        return success, failures
+            
+
     def train_negativepenalty(self, loader, biased_classes_mapped, penalty=10):
         """Train the 'strong baseline - negative penalty' model for one epoch"""
 
