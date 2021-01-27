@@ -70,7 +70,7 @@ def main():
     parser.add_argument('--modelpath', type=str, default=None)
     parser.add_argument('--img_ids', type=int, nargs='+', default=0)
     parser.add_argument('--outdir', type=str, default=None)
-    parser.add_argument('--featuresplit', type=bool, default=False)
+    parser.add_argument('--featuresplit', default=False, action="store_true")
     parser.add_argument('--split', type=int, default=1024)
     parser.add_argument('--device', default=torch.device('cuda'))
     parser.add_argument('--dtype', default=torch.float32)
@@ -101,7 +101,7 @@ def main():
         img_name = img_path.split('/')[-1][:-4]
         if not os.path.exists(img_path):
             # Try searching in val set
-            img_path = '/n/fs/visualai-scr/Data/Coco/2014data/train2014/COCO_train2014_{:012d}.jpg'.format(img_id)
+            img_path = '/n/fs/visualai-scr/Data/Coco/2014data/val2014/COCO_val2014_{:012d}.jpg'.format(img_id)
             img_name = img_path.split('/')[-1][:-4]
             if not os.path.exists(img_path):
                 print('WARNING: Could not find img {}'.format(img_id), flush=True)
