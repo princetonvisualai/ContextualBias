@@ -45,4 +45,4 @@ We provide a brief description of the individual scripts.
 
 ```load_data.py```: Creates dataset loaders and calculates loss weights for class-balancing and feature-split methods
 
-```recall.py```: Defines the recall@k function for DeepFashion evaluation
+```recall.py```: Defines the recall@3 function for DeepFashion evaluation
