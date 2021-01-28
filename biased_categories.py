@@ -5,11 +5,18 @@ import numpy as np
 from classifier import multilabel_classifier
 from load_data import *
 
-# Return bias value, given categories b, z, lists of images with these categories
-# (imgs_b, imgs_z), a list of images where b and z co-occur (co-ooccur), and a
-# dictionary of prediction probabilities of the images (scores_val)
-# co-occur is passed in just to reduce computation of finding the intersection of sets again.
 def bias(b, z, imgs_b, imgs_z, co_occur, scores_dict):
+    """
+    Returns the bias value bias(b, z).
+    
+    b: the biased category
+    z: the context category
+    imgs_b: list of images containing b
+    imgs_z: list of images containing z
+    co_occur: list of images containing both b and z (passed to reduce computation of set intersection)
+    scores_val: dictionary of prediction probabilities
+    """
+    
     b_with_z_imgs = co_occur # Ib AND Iz
     b_without_z_imgs = imgs_b.difference(imgs_z) # Ib \ Iz
     num_b_with_z_imgs = len(b_with_z_imgs)
@@ -30,6 +37,19 @@ def bias(b, z, imgs_b, imgs_z, co_occur, scores_dict):
     return bias_val
 
 def get_pair_bias(b, z, scores_dict, label_to_img_20, label_to_img_80, cooccur_thresh):
+    """
+    Compute bias value bias(b, z) of a model over a dataset.
+    
+    b: the biased category
+    z: the context category
+    scores_dict: dictionary of prediction probabilities
+    label_to_img_20: the set used to compute bias (held-out from model training)
+    label_to_img_80: the set used to determine the co-occurence ratio (the set on which 
+      the model was trained)
+    cooccur_thresh: the threshold of co-occurence ratio in order to count as a 
+      valid biased pair
+    """
+    
     if b == z:
         print('Same category, exiting')
         return 0.0
