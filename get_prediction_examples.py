@@ -53,9 +53,9 @@ def main():
     c = biased_classes_mapped[b]
     print('Running for pair ({}, {})'.format(arg['b'], onehot_to_humanlabels[c]), flush=True)
     print('Standard classifier')
-    standard_success, standard_failures = standard_classifier.get_prediction_examples(testset, b, c)
+    standard_success, standard_failures = standard_classifier.get_prediction_examples(testset, b)
     print('Feature-split classifier')
-    fs_success, fs_failures = fs_classifier.get_prediction_examples(testset, b, c)
+    fs_success, fs_failures = fs_classifier.get_prediction_examples(testset, b)
 
     fs_but_not_standard = list(fs_success.intersection(standard_failures))
     not_fs_not_standard = list(fs_failures.intersection(standard_failures))
