@@ -26,6 +26,9 @@ This is a non-official implementation of [Don't Judge an Object by Its Context: 
 
 ```get_cams.py```
 - **Description**: Visualize the CAM heatmap to understand what the model is learning
+- **Image IDs for Figure 2**: Skateboard (317040), Microwave (191632)
+- **Image IDs for Figure 5**:
+- **Image IDs for Figure 6**: Handbag (167235, 37124), Snowboard (423602, 581921), Car (574087, 119802), Spoon (227858, 42526), Remote (390829)
 
 ```weight_similarity.py```
 - **Description**: Calculating cosine similarity between W_o and W_s to verify that they capture distinct information
