@@ -18,6 +18,9 @@ parser.add_argument('--dtype', default=torch.float32)
 arg = vars(parser.parse_args())
 print('\n', arg, '\n')
 
+if arg['splitbiased'] == True:
+    arg['nclasses'] = arg['nclasses'] + 20
+
 # Load utility files
 humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/COCOStuff/humanlabels_to_onehot.pkl', 'rb'))
 biased_classes_mapped = pickle.load(open('/n/fs/context-scr/COCOStuff/biased_classes_mapped.pkl', 'rb'))
