@@ -4,7 +4,7 @@ This is a non-official implementation of [Don't Judge an Object by Its Context: 
 
 ## Dependencies
 
-- Python 3 (e.g. conda create -n DST python=3.7.3)
+- Python 3 (e.g. conda create -n contextualbias python=3.7.3)
 - pytorch, torch, torchvision, numpy, scipy, sklearn, PIL, cv2, matplotlib, pickle, collections, time, argparse
 
 ## Usage
