@@ -2,46 +2,47 @@
 
 This is a non-official implementation of [Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias (CVPR 2020)](https://arxiv.org/abs/2001.03152). We developed this codebase to reproduce the experiments in the paper, as part of our participation in the [ML Reproducibility Challenge 2020](https://paperswithcode.com/rc2020).
 
-## Data processing
-```data_process.py```
-- **Description**: Processes datasets
+## Dependencies
 
-```split_80_20.py```
-- **Description**: Do a 80-20 split of the COCO/AwA training set to create a validation set.
+- Python 3 (e.g. conda create -n DST python=3.7.3)
+- pytorch, torch, torchvision, numpy, scipy, sklearn, PIL, cv2, matplotlib, pickle, collections, time, argparse
 
-## Biased categories identification
-```biased_categories.py```
-- **Description**: Calculates bias and identifies the K=20 most biased categories
+## Usage
 
-## Training
-```train.py```
-- **Description**: Trains various models (baseline, cam, featuresplit, removeclabels, removecimages, negativepenalty, classbalancing)
+We provide an example job script ```job.sh``` that contains the script execution order with example commands. 
 
-## Evaluation
-```evaluate.py```
-- **Description**: Evaluates a trained model on the exclusive and co-occur test distributions.
+## Code overview
 
-```evaluate_unrel.py```
-- **Description**: Evaluates UnRel dataset on the exclusive and co-occur test distributions, prints mAP
+We provide a brief description of the individual scripts.
 
-```get_cams.py```
-- **Description**: Visualize the CAM heatmap to understand what the model is learning
+#### Data processing
+```{Dataset}/data_process.py```: Processes the COCO-Stuff, DeepFashion, AwA, UnRel datasets
+
+```split_80_20.py```: Does a 80-20 split of the COCO-Stuff/AwA training set to create a validation set
+
+#### Biased categories identification
+```biased_categories.py```: Calculates bias and identifies the K=20 most biased categories
+
+#### Training
+```train.py```: Trains various models (standard, cam, featuresplit, removeclabels, removecimages, splitbiased, weighted, negativepenalty, classbalancing, attribdecorr)
+
+#### Evaluation
+```evaluate.py```: Evaluates a trained model on the COCO-Stuff, DeepFashion, AwA datasets, on their exclusive and co-occur test distributions
+
+```evaluate_unrel.py```: Evaluates a trained model on the UnRel dataset
+
+```get_cams.py```: Saves class activation maps (CAMs) to understand what the model is looking at
 - **Image IDs for Figure 2**: Skateboard (317040), Microwave (191632)
 - **Image IDs for Figure 6**: Handbag (167235, 37124), Snowboard (423602, 581921), Car (574087, 119802), Spoon (227858, 42526), Remote (390829)
 
-```weight_similarity.py```
-- **Description**: Calculating cosine similarity between W_o and W_s to verify that they capture distinct information
+```weight_similarity.py```: Calculates the cosine similarity between W_o and W_s to verify that they capture distinct information
 
-```get_prediction_examples.py```
-- **Description**: Find successful and unsuccessful image examples of a model's prediction for a category b
+```get_prediction_examples.py```: Finds successful and unsuccessful image examples of a model's prediction for a category b
 - **Image IDs for Figure 5**: Skateboard (175612, 198043, 292789, 300842), Microwave (47873, 68833, 332480, 568281), Snowboard (50482, 174103, 435894, 422328)
 
-## Utils
-```load_data.py```
-- **Description**: Creates dataset loaders and calculates loss weights for class-balancing and feature-split methods.
+#### Utils
+```classifier.py```: Defines a multi-label classifier with various training methods
 
-```classifier.py```
-- **Description**: Defines the multi-label classifier with various training methods.
+```load_data.py```: Creates dataset loaders and calculates loss weights for class-balancing and feature-split methods
 
-```recall.py```
-- **Description**: Top 3 recall function for DeepFashion evaluation
+```recall.py```: Defines the recall@k function for DeepFashion evaluation
