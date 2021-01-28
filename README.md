@@ -27,11 +27,14 @@ This is a non-official implementation of [Don't Judge an Object by Its Context: 
 ```get_cams.py```
 - **Description**: Visualize the CAM heatmap to understand what the model is learning
 - **Image IDs for Figure 2**: Skateboard (317040), Microwave (191632)
-- **Image IDs for Figure 5**: Skateboard (175612, 198043, 292789, 300842), Microwave (47873, 68833, 332480, 568281), Snowboard (50482, 174103, 435894, 422328)
 - **Image IDs for Figure 6**: Handbag (167235, 37124), Snowboard (423602, 581921), Car (574087, 119802), Spoon (227858, 42526), Remote (390829)
 
 ```weight_similarity.py```
 - **Description**: Calculating cosine similarity between W_o and W_s to verify that they capture distinct information
+
+```get_prediction_examples.py```
+- **Description**: Find successful and unsuccessful image examples of a model's prediction for a category b
+- **Image IDs for Figure 5**: Skateboard (175612, 198043, 292789, 300842), Microwave (47873, 68833, 332480, 568281), Snowboard (50482, 174103, 435894, 422328)
 
 ## Utils
 ```load_data.py```
