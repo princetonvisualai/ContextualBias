@@ -4,43 +4,28 @@ This is a non-official implementation of [Don't Judge an Object by Its Context: 
 
 ## Data processing
 ```data_process.py```
-- **Input**: labels.txt (downloaded from the official COCO-Stuff repository: https://github.com/nightrome/cocostuff)
-- **Output**: humanlabels_to_onehot.pkl, labels_val.pkl, labels_train.pkl
-- **Description**: Processes COCO-2014 train and validation sets by grabbing the corresponding things+stuff annotations from COCO-2017-Stuff. labels_val.pkl and label_train.pkl contain image paths as keys (e.g. '/n/fs/visualai-scr/Data/Coco/2014data/val2014/COCO_val2014_000000581913.jpg) and 171-D one-hot encoded labels as values (e.g. [0, 1, ..., 0]).
+- **Description**: Processes datasets
 
 ```split_80_20.py```
-- **Input**: labels_train.pkl
-- **Output**: labels_train_80.pkl, labels_train_20.pkl
 - **Description**: Do a 80-20 split of the COCO/AwA training set to create a validation set.
 
 ## Biased categories identification
 ```biased_categories.py```
-- **Input**: labels_train_20.pkl, humanlabels_to_onehot.pkl, path to the model trained on labels_train_80.pkl
-- **Output**: biased_classes.pkl, biased_classes_mapped.pkl, unbiased_classes_mapped.pkl
 - **Description**: Calculates bias and identifies the K=20 most biased categories
 
 ## Training
 ```train.py```
-- **Input**: labels_train.pkl, labels_val.pkl, unbiased_classes_mapped.pkl, biased_classes_mapped.pkl, humanlabels_to_onehot.pkl
-- **Output**: Optimized model parameters
 - **Description**: Trains various models (baseline, cam, featuresplit, removeclabels, removecimages, negativepenalty, classbalancing)
 
 ## Evaluation
 ```evaluate.py```
-- **Input**: biased_classes.pkl, humanlabels_to_onehot.pkl, path to the trained model you want to evaluate
-- **Output**: Scores saved in evalresults
 - **Description**: Evaluates a trained model on the exclusive and co-occur test distributions.
 
 ```evaluate_unrel.py```
 - **Description**: Evaluates UnRel dataset on the exclusive and co-occur test distributions, prints mAP
 
 ```get_cams.py```
-- **Input**: COCOStuff image IDs, path of model to visualize
-- **Output**: Saved CAM plot
 - **Description**: Visualize the CAM heatmap to understand what the model is learning
-
-```recall.py```
-- **Description**: Top 3 recall function for DeepFashion evaluation
 
 ```weight_similarity.py```
 - **Description**: Calculating cosine similarity between W_o and W_s to verify that they capture distinct information
@@ -50,6 +35,7 @@ This is a non-official implementation of [Don't Judge an Object by Its Context: 
 - **Description**: Creates dataset loaders and calculates loss weights for class-balancing and feature-split methods.
 
 ```classifier.py```
-- **Description**: Defines the multi-label classifier with various training methods. 
+- **Description**: Defines the multi-label classifier with various training methods.
 
-
+```recall.py```
+- **Description**: Top 3 recall function for DeepFashion evaluation

@@ -21,7 +21,7 @@ def bias(b, z, imgs_b, imgs_z, co_occur, scores_dict):
         p_with += scores_dict[i][b]
     for i in b_without_z_imgs:
         p_without += scores_dict[i][b]
-    
+
     if num_b_with_z_imgs > 0 and p_without > 0 and num_b_without_z_imgs > 0:
         bias_val = (p_with/num_b_with_z_imgs) / (p_without/num_b_without_z_imgs)
     else:
@@ -48,11 +48,11 @@ def get_pair_bias(b, z, scores_dict, label_to_img_20, label_to_img_80, cooccur_t
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str)
-    parser.add_argument('--modelpath', type=str, default=None)
-    parser.add_argument('--labels_20', type=str, default='/n/fs/context-scr/COCOStuff/labels_train_20.pkl')
-    parser.add_argument('--labels_80', type=str, default='/n/fs/context-scr/COCOStuff/labels_train_80.pkl')
-    parser.add_argument('--batchsize', type=int, default=200)
     parser.add_argument('--nclasses', type=int, default=171)
+    parser.add_argument('--modelpath', type=str, default=None)
+    parser.add_argument('--labels_20', type=str, default='COCOStuff/labels_train_20.pkl')
+    parser.add_argument('--labels_80', type=str, default='COCOStuff/labels_train_80.pkl')
+    parser.add_argument('--batchsize', type=int, default=200)
     parser.add_argument('--cooccur', type=float, default=0.1)
     parser.add_argument('--precomputed', type=bool, default=False)
     parser.add_argument('--device', default=torch.device('cuda'))
@@ -90,7 +90,7 @@ def main():
                 for j in range(images.shape[0]):
                     id = ids[j]
                     scores_dict[id] = scores[j]
-        
+
         with open('{}/scores_dict.pkl'.format(arg['dataset']), 'wb+') as handle:
             pickle.dump(scores_dict, handle)
 
@@ -109,7 +109,7 @@ def main():
         idx_list = np.where(labels_dict_80[img_name]>0)[0]
         for label in idx_list:
             label_to_img_80[label].append(img_name)
-    
+
     # Compute biases for 20 categories in paper
     original_biased_pairs = pickle.load(open('/n/fs/context-scr/{}/biased_classes.pkl'.format(arg['dataset']), 'rb'))
     if True:
@@ -173,6 +173,6 @@ def main():
         print('\n{:>11} {:>11} {:>8}'.format('b', 'c', 'bias'), flush=True)
         for pair in result['top_20']:
             print('{:>11} {:>11} {:8.2f}'.format(pair[0], pair[1], pair[2]), flush=True)
-        
+
 if __name__ == '__main__':
     main()

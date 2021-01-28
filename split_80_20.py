@@ -1,11 +1,15 @@
-import pickle
+import pickle, argparse
 import numpy as np
-import sys
 
-dataset = sys.argv[1]
+parser = argparse.ArgumentParser()
+parser.add_argument('--labels_train', type=str, default=None)
+parser.add_argument('--labels_train_20', type=str, default=None)
+parser.add_argument('--labels_train_80', type=str, default=None)
+arg = vars(parser.parse_args())
+print('\n', arg, '\n')
 
 # Load the processed train labels
-labels_train = pickle.load(open('/n/fs/context-scr/{}/labels_train.pkl'.format(dataset), 'rb'))
+labels_train = pickle.load(open(arg['labels_train'], 'rb'))
 
 # Do a 80-20 split of train
 N = len(list(labels_train.keys()))
@@ -22,7 +26,7 @@ keys_20 = np.delete(keys, inds_80)
 labels_train_80 = {k: labels_train[k] for k in keys_80}
 labels_train_20 = {k: labels_train[k] for k in keys_20}
 
-with open('/n/fs/context-scr/{}/labels_train_80.pkl'.format(dataset), 'wb') as handle:
+with open(arg['labels_train_80'], 'wb') as handle:
     pickle.dump(labels_train_80, handle, protocol=4)
-with open('/n/fs/context-scr/{}/labels_train_20.pkl'.format(dataset), 'wb') as handle:
+with open(arg['labels_train_20'], 'wb') as handle:
     pickle.dump(labels_train_20, handle, protocol=4)

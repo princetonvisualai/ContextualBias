@@ -11,11 +11,20 @@ from recall import recall3
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str)
-    parser.add_argument('--model', type=str, default='baseline',
-        choices=['baseline', 'cam', 'featuresplit', 'splitbiased', 'weighted',
+    parser.add_argument('--model', type=str, default='standard',
+        choices=['standard', 'cam', 'featuresplit', 'splitbiased', 'weighted',
         'removeclabels', 'removecimages', 'negativepenalty', 'classbalancing',
         'attribdecorr', 'fs_weighted', 'fs_noweighted'])
+    parser.add_argument('--modelpath', type=str, default=None)
+    parser.add_argument('--pretrainedpath', type=str, default=None)
+    parser.add_argument('--biased_classes_mapped', type=str, default='biased_classes_mapped.pkl')
+    parser.add_argument('--unbiased_classes_mapped', type=str, default='unbiased_classes_mapped.pkl')
+    parser.add_argument('--humanlabels_to_onehot', type=str, default='humanlabels_to_onehot.pkl')
+    parser.add_argument('--outdir', type=str, default='save')
+    parser.add_argument('--dataset', type=str)
+    parser.add_argument('--nclasses', type=int, default=171)
+    parser.add_argument('--labels_train', type=str, default='labels_train.pkl')
+    parser.add_argument('--labels_val', type=str, default='labels_val.pkl')
     parser.add_argument('--nepoch', type=int, default=100)
     parser.add_argument('--train_batchsize', type=int, default=200)
     parser.add_argument('--val_batchsize', type=int, default=170)
@@ -26,15 +35,9 @@ def main():
     parser.add_argument('--hs', type=int, default=2048)
     parser.add_argument('--cam_lambda1', type=float, default=0.1)
     parser.add_argument('--cam_lambda2', type=float, default=0.01)
-    parser.add_argument('--split', type=int, default=1024)
     parser.add_argument('--fs_randomsplit', default=False, action="store_true")
+    parser.add_argument('--split', type=int, default=1024)
     parser.add_argument('--compshare_lambda', type=float, default=5.0)
-    parser.add_argument('--nclasses', type=int, default=171)
-    parser.add_argument('--modelpath', type=str, default=None)
-    parser.add_argument('--pretrainedpath', type=str, default=None)
-    parser.add_argument('--outdir', type=str, default='/n/fs/context-scr/COCOStuff/save')
-    parser.add_argument('--labels_train', type=str, default='/n/fs/context-scr/COCOStuff/labels_train.pkl')
-    parser.add_argument('--labels_val', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
     parser.add_argument('--seed', type=int, default=999)
     parser.add_argument('--device', default=torch.device('cuda:0'))
     parser.add_argument('--dtype', default=torch.float32)
@@ -58,10 +61,10 @@ def main():
         makedirs(arg['outdir'])
 
     # Load utility files
-    biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+    biased_classes_mapped = pickle.load(open(arg['biased_classes_mapped'], 'rb'))
     if arg['dataset'] == 'COCOStuff':
-        unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/COCOStuff/unbiased_classes_mapped.pkl', 'rb'))
-    humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
+        unbiased_classes_mapped = pickle.load(open(arg['unbiased_classes_mapped'], 'rb'))
+    humanlabels_to_onehot = pickle.load(open(arg['humanlabels_to_onehot'], 'rb'))
     onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
     # Create data loaders
@@ -80,10 +83,9 @@ def main():
     classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'],
                                        modelpath=arg['modelpath'], hidden_size=arg['hs'], learning_rate=arg['lr'],
                                        attribdecorr=(arg['model']=='attribdecorr'), compshare_lambda=arg['compshare_lambda'])
+    classifier.epoch = 0 # Reset epoch for stage 2 training
     classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=arg['momentum'], weight_decay=arg['wd'])
 
-    if arg['model'] != 'baseline':
-        classifier.epoch = 0 # Reset epoch for stage 2 training
     if arg['model'] == 'cam':
         pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'])
     if arg['model'] == 'attribdecorr':
@@ -119,7 +121,7 @@ def main():
             pretrained_net.model._modules['module'].resnet.avgpool.register_forward_hook(hook_pretrained_features)
         else:
             pretrained_net.model._modules['resnet'].avgpool.register_forward_hook(hook_pretrained_features)
-    if arg['model'] == 'featuresplit':
+    if arg['model'] in ['featuresplit', 'fs_noweighted']:
         print('Registering classifier features hook for feature-split training')
         classifier_features = []
         def hook_classifier_features(module, input, output):
@@ -158,7 +160,7 @@ def main():
                 classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=0.01,
                                                        momentum=arg['momentum'], weight_decay=arg['wd'])
 
-        if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased']:
+        if arg['model'] in ['standard', 'removeclabels', 'removecimages', 'splitbiased']:
             train_loss_list = classifier.train(trainset)
         if arg['model'] == 'negativepenalty':
             train_loss_list = classifier.train_negativepenalty(trainset, biased_classes_mapped, penalty=10)
@@ -174,20 +176,19 @@ def main():
                 pretrained_features, classifier_features, lambda1=arg['cam_lambda1'], lambda2=arg['cam_lambda2'])
         if arg['model'] == 'featuresplit':
             if i == 0: xs_prev_ten = []
-            train_loss_list, xs_prev_ten, loss_non_list, loss_exc_list = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=arg['split'])
-        if arg['model'] == 'fs_weighted':
-            train_loss_list = classifier.train_fs_weighted(trainset, biased_classes_mapped, weight)
+            train_loss_list, xs_prev_ten, loss_non_list, loss_exc_list = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=arg['split'], weighted=True)
         if arg['model'] == 'fs_noweighted':
             if i == 0: xs_prev_ten = []
-            train_loss_list, xs_prev_ten = classifier.train_fs_noweighted(trainset, biased_classes_mapped,
-                                                                        None, xs_prev_ten, s_indices, split=arg['split'])
+            train_loss_list, xs_prev_ten, loss_non_list, loss_exc_list = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=arg['split'], weighted=False)
+        if arg['model'] == 'fs_weighted':
+            train_loss_list = classifier.train_fs_weighted(trainset, biased_classes_mapped, weight)
 
         # Save the model
         if (i + 1) % 1 == 0:
             classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], classifier.epoch))
 
         # Do inference with the model
-        if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit', 'fs_noweighted']:
+        if arg['model'] in ['standard', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit', 'fs_noweighted']:
             labels_list, scores_list, val_loss_list = classifier.test(valset)
         if arg['model'] == 'negativepenalty':
             labels_list, scores_list, val_loss_list = classifier.test_negativepenalty(valset, biased_classes_mapped, penalty=10)
