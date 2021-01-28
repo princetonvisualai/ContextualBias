@@ -143,7 +143,9 @@ class multilabel_classifier():
 
         return labels_list, scores_list, loss_list
 
-    def get_prediction_examples(self, loader, b, c):
+    def get_prediction_examples(self, loader, b):
+        """Sorts predictions on b into successful and unsuccessful examples"""
+        
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.model.eval()
 
@@ -398,6 +400,8 @@ class multilabel_classifier():
         return labels_list, scores_list, loss_list
 
     def train_attribdecorr(self, loader, pretrained_net, biased_classes_mapped, humanlabels_to_onehot, pretrained_features, compshare_lambda=0.1):
+        """Train the 'attribute decorrelation' model for one epoch"""
+        
         # Define semantic groups according to http://vision.cs.utexas.edu/projects/resistshare/
         semantic_attributes = [
             ['patches', 'spots', 'stripes', 'furry', 'hairless', 'toughskin'],
@@ -470,6 +474,7 @@ class multilabel_classifier():
         return loss_list
 
     def test_attribdecorr(self, loader, pretrained_net, biased_classes_mapped, pretrained_features, compshare_lambda=0.01):
+        """Evaluate the 'attribute decorrelation' model"""
 
         pretrained_net.model.to(device=self.device, dtype=self.dtype)
         pretrained_net.model.eval()
