@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as T
 from skimage import transform
 
-class Dataset(Dataset): # rename something different from Dataset?
+class Dataset(Dataset):
     def __init__(self, img_paths, img_labels, transform=T.ToTensor()):
         self.img_paths = img_paths
         self.img_labels = img_labels
@@ -25,7 +25,7 @@ class Dataset(Dataset): # rename something different from Dataset?
 
         return X, y, ID
 
-def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=True, removeclabels=False, removecimages=False, splitbiased=False):
+def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=True, removeclabels=False, removecimages=False, removeximages=False, splitbiased=False):
 
     img_labels = pickle.load(open(labels_path, 'rb'))
     img_paths = sorted(list(img_labels.keys()))
@@ -53,7 +53,6 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
             del img_labels[remove_img_path]
             img_paths.remove(remove_img_path)
         print('{}/{} training images remaining'.format(len(img_paths), len(img_labels)), flush=True)
-
 
     # Strong baseline - split biased category into exclusive and co-occuring
     if splitbiased:
@@ -142,7 +141,7 @@ def calculate_featuresplit_weight(labels_path, nclasses, biased_classes_mapped, 
         else:
             less_than_alpha_min += 1
             w[b] = alpha_min
-            print('b {}: alpha {} replaced with {}'.format(b, alpha, alpha_min))
+            print('b {:2d}: alpha {:.4f} replaced with {}'.format(b, alpha, alpha_min))
 
     print('Greater than alpha_min: {}'.format(greater_than_alpha_min), flush=True)
     print('Less than alpha_min: {}'.format(less_than_alpha_min), flush=True) 
