@@ -15,18 +15,18 @@ We provide an example job script ```job.sh``` that contains the script execution
 
 We provide a brief description of the individual scripts.
 
-#### Data processing
+### Data processing
 ```{Dataset}/data_process.py```: Processes the COCO-Stuff, DeepFashion, AwA, UnRel datasets
 
 ```split_80_20.py```: Does a 80-20 split of the COCO-Stuff/AwA training set to create a validation set
 
-#### Biased categories identification
+### Biased categories identification
 ```biased_categories.py```: Calculates bias and identifies the K=20 most biased categories
 
-#### Training
+### Training
 ```train.py```: Trains various models (standard, cam, featuresplit, removeclabels, removecimages, splitbiased, weighted, negativepenalty, classbalancing, attribdecorr)
 
-#### Evaluation
+### Evaluation
 ```evaluate.py```: Evaluates a trained model on the COCO-Stuff, DeepFashion, AwA datasets, on their exclusive and co-occur test distributions
 
 ```evaluate_unrel.py```: Evaluates a trained model on the UnRel dataset
@@ -40,7 +40,7 @@ We provide a brief description of the individual scripts.
 ```get_prediction_examples.py```: Finds successful and unsuccessful image examples of a model's prediction for a category b
 - **Image IDs for Figure 5**: Skateboard (175612, 198043, 292789, 300842), Microwave (47873, 68833, 332480, 568281), Snowboard (50482, 174103, 435894, 422328)
 
-#### Utils
+### Utils
 ```classifier.py```: Defines a multi-label classifier with various training methods
 
 ```load_data.py```: Creates dataset loaders and calculates loss weights for class-balancing and feature-split methods
