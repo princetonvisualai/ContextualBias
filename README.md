@@ -2,7 +2,7 @@
 
 This is a non-official implementation of [Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias (CVPR 2020)](https://arxiv.org/abs/2001.03152). We developed this codebase to reproduce the experiments in the paper, as part of our participation in the [ML Reproducibility Challenge 2020](https://paperswithcode.com/rc2020).
 
-## Data pre-processing
+## Data processing
 ```data_process.py```
 - **Input**: labels.txt (downloaded from the official COCO-Stuff repository: https://github.com/nightrome/cocostuff)
 - **Output**: humanlabels_to_onehot.pkl, labels_val.pkl, labels_train.pkl
@@ -11,7 +11,7 @@ This is a non-official implementation of [Don't Judge an Object by Its Context: 
 ```split_80_20.py```
 - **Input**: labels_train.pkl
 - **Output**: labels_train_80.pkl, labels_train_20.pkl
-- **Description**: Do a 80-20 split of the COCO training set to train a model for biased categories identification.
+- **Description**: Do a 80-20 split of the COCO/AwA training set to create a validation set.
 
 ## Biased categories identification
 ```biased_categories.py```
@@ -31,7 +31,7 @@ This is a non-official implementation of [Don't Judge an Object by Its Context: 
 - **Output**: Scores saved in evalresults
 - **Description**: Evaluates a trained model on the exclusive and co-occur test distributions.
 
-```evaluate.py```
+```evaluate_unrel.py```
 - **Description**: Evaluates UnRel dataset on the exclusive and co-occur test distributions, prints mAP
 
 ```get_cams.py```
@@ -46,11 +46,6 @@ This is a non-official implementation of [Don't Judge an Object by Its Context: 
 - **Description**: Calculating cosine similarity between W_o and W_s to verify that they capture distinct information
 
 ## Utils
-```create_evaldata.py```
-- **Input**: dataset type
-- **Output**: biased_classes.pkl, biased_classes_mapped.pkl, unbiased_classes_mapped.pkl
-- **Description**: Create evaluation data, specifically identifying the biased classes from the original paper
-
 ```load_data.py```
 - **Description**: Creates dataset loaders and calculates loss weights for class-balancing and feature-split methods.
 
