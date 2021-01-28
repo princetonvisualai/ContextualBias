@@ -54,22 +54,6 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
             img_paths.remove(remove_img_path)
         print('{}/{} training images remaining'.format(len(img_paths), len(img_labels)), flush=True)
 
-    # Figure 7 - remove exclusive images
-    if removeximages:
-        remove_img_paths = []
-        for i, img_path in enumerate(img_labels):
-            for b in biased_classes_mapped.keys():
-                c = biased_classes_mapped[b]
-                if (img_labels[img_path][b] == 1) and (img_labels[img_path][c] == 0):
-                    remove_img_paths.append(img_path)
-                    break
-
-        print('Removing {} exclusive images from {} total training images'.format(len(remove_img_paths), len(img_labels)), flush=True)
-        for remove_img_path in remove_img_paths:
-            del img_labels[remove_img_path]
-            img_paths.remove(remove_img_path)
-        print('{}/{} training images remaining'.format(len(img_paths), len(img_labels)), flush=True)
-
     # Strong baseline - split biased category into exclusive and co-occuring
     if splitbiased:
         nclasses = len(list(img_labels.values())[0])
