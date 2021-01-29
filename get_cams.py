@@ -72,11 +72,12 @@ def main():
     parser.add_argument('--outdir', type=str, default=None)
     parser.add_argument('--featuresplit', default=False, action="store_true")
     parser.add_argument('--split', type=int, default=1024)
+    parser.add_argument('--coco2014_images', type=str, default='Data/Coco/2014data')
     parser.add_argument('--device', default=torch.device('cuda'))
     parser.add_argument('--dtype', default=torch.float32)
     arg = vars(parser.parse_args())
     print(arg, '\n', flush=True)
-    
+
     normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     transform = T.Compose([
         T.Resize(224),
@@ -97,11 +98,11 @@ def main():
 
     for img_id in arg['img_ids']:
         # Open image
-        img_path = '/n/fs/visualai-scr/Data/Coco/2014data/train2014/COCO_train2014_{:012d}.jpg'.format(img_id)
+        img_path = '{}/train2014/COCO_train2014_{:012d}.jpg'.format(arg['coco2014_images'], img_id)
         img_name = img_path.split('/')[-1][:-4]
         if not os.path.exists(img_path):
             # Try searching in val set
-            img_path = '/n/fs/visualai-scr/Data/Coco/2014data/val2014/COCO_val2014_{:012d}.jpg'.format(img_id)
+            img_path = '{}/val2014/COCO_val2014_{:012d}.jpg'.format(arg['coco2014_images'], img_id)
             img_name = img_path.split('/')[-1][:-4]
             if not os.path.exists(img_path):
                 print('WARNING: Could not find img {}'.format(img_id), flush=True)
@@ -117,14 +118,14 @@ def main():
         print('Processing img {}'.format(img_id), flush=True)
 
         # Get image class labels
-        img_labels = pickle.load(open('/n/fs/context-scr/COCOStuff/labels_train.pkl', 'rb'))
+        img_labels = pickle.load(open('COCOStuff/labels_train.pkl', 'rb'))
         if img_path in img_labels:
             if torch.cuda.device_count() > 0:
                 class_labels = img_labels[img_path].type('torch.cuda.ByteTensor')
             else:
                 class_labels = img_labels[img_path].type('torch.ByteTensor')
         else:
-            img_labels = pickle.load(open('/n/fs/context-scr/COCOStuff/labels_val.pkl', 'rb'))
+            img_labels = pickle.load(open('COCOStuff/labels_test.pkl', 'rb'))
             if img_path in img_labels:
                 if torch.cuda.device_count() > 0:
                     class_labels = img_labels[img_path].type('torch.cuda.ByteTensor')
@@ -144,12 +145,12 @@ def main():
 
         if arg['featuresplit']:
             CAMs = returnCAM_featuresplit(classifier_features[0], classifier_softmax_weight, class_labels, arg['device'], split=arg['split'])
-        else: 
+        else:
             CAMs = returnCAM(classifier_features[0], classifier_softmax_weight, class_labels, arg['device'])
         CAMs = CAMs.detach().cpu().numpy()
 
         # Save CAM heatmap
-        humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/COCOStuff/humanlabels_to_onehot.pkl', 'rb'))
+        humanlabels_to_onehot = pickle.load(open('COCOStuff/humanlabels_to_onehot.pkl', 'rb'))
         onehot_to_humanlabels = {v: k for k,v in humanlabels_to_onehot.items()}
 
         img = np.moveaxis(img.detach().cpu().numpy(), 0, -1)
@@ -158,13 +159,13 @@ def main():
             for i in range(len(class_labels)):
                 heatmap_o = get_heatmap(CAMs[2*i], img)
                 heatmap_s = get_heatmap(CAMs[2*i+1], img)
-                
+
                 fig = plt.figure()
                 fig_o = fig.add_subplot(121)
                 fig_o.imshow(heatmap_o)
                 fig_o.axis('off')
                 fig_o.set_title('{} ({})'.format(onehot_to_humanlabels[class_labels[i]], 'Wo'))
-                
+
                 fig_s = fig.add_subplot(122)
                 fig_s.imshow(heatmap_s)
                 fig_s.axis('off')
@@ -174,7 +175,7 @@ def main():
                 plt.show()
                 plt.close()
         else:
-            for i in range(len(class_labels)): 
+            for i in range(len(class_labels)):
                 heatmap = get_heatmap(CAMs[i], img)
                 plt.figure()
                 plt.imshow(heatmap)

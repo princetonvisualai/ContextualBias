@@ -17,14 +17,11 @@ def main():
         'attribdecorr', 'fs_weighted', 'fs_noweighted'])
     parser.add_argument('--modelpath', type=str, default=None)
     parser.add_argument('--pretrainedpath', type=str, default=None)
-    parser.add_argument('--biased_classes_mapped', type=str, default='biased_classes_mapped.pkl')
-    parser.add_argument('--unbiased_classes_mapped', type=str, default='unbiased_classes_mapped.pkl')
-    parser.add_argument('--humanlabels_to_onehot', type=str, default='humanlabels_to_onehot.pkl')
     parser.add_argument('--outdir', type=str, default='save')
     parser.add_argument('--dataset', type=str)
     parser.add_argument('--nclasses', type=int, default=171)
-    parser.add_argument('--labels_train', type=str, default='labels_train.pkl')
-    parser.add_argument('--labels_val', type=str, default='labels_val.pkl')
+    parser.add_argument('--labels_train', type=str, default=None)
+    parser.add_argument('--labels_val', type=str, default=None)
     parser.add_argument('--nepoch', type=int, default=100)
     parser.add_argument('--train_batchsize', type=int, default=200)
     parser.add_argument('--val_batchsize', type=int, default=170)
@@ -61,10 +58,10 @@ def main():
         makedirs(arg['outdir'])
 
     # Load utility files
-    biased_classes_mapped = pickle.load(open(arg['biased_classes_mapped'], 'rb'))
+    biased_classes_mapped = pickle.load(open('{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
     if arg['dataset'] == 'COCOStuff':
-        unbiased_classes_mapped = pickle.load(open(arg['unbiased_classes_mapped'], 'rb'))
-    humanlabels_to_onehot = pickle.load(open(arg['humanlabels_to_onehot'], 'rb'))
+        unbiased_classes_mapped = pickle.load(open('{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+    humanlabels_to_onehot = pickle.load(open('{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
     onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
     # Create data loaders
@@ -83,7 +80,7 @@ def main():
     classifier = multilabel_classifier(arg['device'], arg['dtype'], nclasses=arg['nclasses'],
                                        modelpath=arg['modelpath'], hidden_size=arg['hs'], learning_rate=arg['lr'],
                                        attribdecorr=(arg['model']=='attribdecorr'), compshare_lambda=arg['compshare_lambda'])
-    classifier.epoch = 0 # Reset epoch for stage 2 training
+    classifier.epoch = 1 # Reset epoch for stage 2 training
     classifier.optimizer = torch.optim.SGD(classifier.model.parameters(), lr=arg['lr'], momentum=arg['momentum'], weight_decay=arg['wd'])
 
     if arg['model'] == 'cam':
@@ -152,7 +149,7 @@ def main():
     tb = SummaryWriter(log_dir='{}/runs'.format(arg['outdir']))
     start_time = time.time()
     print('\nStarted training at {}\n'.format(start_time))
-    for i in range(classifier.epoch, classifier.epoch+arg['nepoch']):
+    for i in range(1, arg['nepoch']+1):
 
         # Reduce learning rate from 0.1 to 0.01
         if arg['model'] != 'attribdecorr':
@@ -185,7 +182,7 @@ def main():
 
         # Save the model
         if (i + 1) % 1 == 0:
-            classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], classifier.epoch))
+            classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], i))
 
         # Do inference with the model
         if arg['model'] in ['standard', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit', 'fs_noweighted']:

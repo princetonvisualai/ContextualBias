@@ -1,4 +1,4 @@
-import pickle, glob, collections, time, argparse
+import pickle, collections, time, argparse
 import torch
 import numpy as np
 
@@ -8,7 +8,7 @@ from load_data import *
 def bias(b, z, imgs_b, imgs_z, co_occur, scores_dict):
     """
     Returns the bias value bias(b, z).
-    
+
     b: the biased category
     z: the context category
     imgs_b: list of images containing b
@@ -16,7 +16,7 @@ def bias(b, z, imgs_b, imgs_z, co_occur, scores_dict):
     co_occur: list of images containing both b and z (passed to reduce computation of set intersection)
     scores_val: dictionary of prediction probabilities
     """
-    
+
     b_with_z_imgs = co_occur # Ib AND Iz
     b_without_z_imgs = imgs_b.difference(imgs_z) # Ib \ Iz
     num_b_with_z_imgs = len(b_with_z_imgs)
@@ -39,17 +39,17 @@ def bias(b, z, imgs_b, imgs_z, co_occur, scores_dict):
 def get_pair_bias(b, z, scores_dict, label_to_img_20, label_to_img_80, cooccur_thresh):
     """
     Compute bias value bias(b, z) of a model over a dataset.
-    
+
     b: the biased category
     z: the context category
     scores_dict: dictionary of prediction probabilities
     label_to_img_20: the set used to compute bias (held-out from model training)
-    label_to_img_80: the set used to determine the co-occurence ratio (the set on which 
+    label_to_img_80: the set used to determine the co-occurence ratio (the set on which
       the model was trained)
-    cooccur_thresh: the threshold of co-occurence ratio in order to count as a 
+    cooccur_thresh: the threshold of co-occurence ratio in order to count as a
       valid biased pair
     """
-    
+
     if b == z:
         print('Same category, exiting')
         return 0.0
@@ -83,7 +83,7 @@ def main():
     # Load files
     labels_dict_20 = pickle.load(open(arg['labels_20'], 'rb'))
     labels_dict_80 = pickle.load(open(arg['labels_80'], 'rb'))
-    humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
+    humanlabels_to_onehot = pickle.load(open('{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
     onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
     if arg['precomputed']:
@@ -99,11 +99,6 @@ def main():
             for i, (images, labels, ids) in enumerate(valset):
                 images = images.to(device=classifier.device, dtype=classifier.dtype)
                 labels = labels.to(device=classifier.device, dtype=classifier.dtype)
-
-                # Ten crop
-                # bs, ncrops, c, h, w = images.size()
-                # outputs, _ = classifier.forward(images.view(-1, c, h, w))
-                # outputs_avg = outputs.view(bs, ncrops, -1).mean(1)
 
                 outputs = classifier.forward(images)
                 scores = torch.sigmoid(outputs).squeeze().data.cpu().numpy()
@@ -131,7 +126,7 @@ def main():
             label_to_img_80[label].append(img_name)
 
     # Compute biases for 20 categories in paper
-    original_biased_pairs = pickle.load(open('/n/fs/context-scr/{}/biased_classes.pkl'.format(arg['dataset']), 'rb'))
+    original_biased_pairs = pickle.load(open('{}/biased_classes.pkl'.format(arg['dataset']), 'rb'))
     if True:
         print('Original biased pairs')
         print('\n{:>11} {:>11} {:>8}'.format('b', 'c', 'bias'), flush=True)

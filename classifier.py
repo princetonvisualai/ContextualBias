@@ -51,7 +51,7 @@ class multilabel_classifier():
         self.model = self.model.to(device=self.device, dtype=self.dtype)
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=weight_decay)
 
-        self.epoch = 0
+        self.epoch = 1
         self.print_freq = 100
 
         if modelpath != None:

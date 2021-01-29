@@ -12,12 +12,12 @@ from recall import recall3
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str)
+    parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--standard_modelpath', type=str, default=None)
     parser.add_argument('--fs_modelpath', type=str, default=None)
     parser.add_argument('--b', type=str, default=None)
-    parser.add_argument('--labels_test', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
+    parser.add_argument('--labels_test', type=str, default='COCOStuff/labels_test.pkl')
     parser.add_argument('--batchsize', type=int, default=256)
-    parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--hs', type=int, default=2048)
     parser.add_argument('--num_examples', type=int, default=5)
     parser.add_argument('--outdir', type=str)
@@ -35,10 +35,10 @@ def main():
         os.makedirs(not_fs_not_standard_outdir)
 
     # Load utility files
-    biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+    biased_classes_mapped = pickle.load(open('{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
     if arg['dataset'] == 'COCOStuff':
-        unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
-    humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
+        unbiased_classes_mapped = pickle.load(open('{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+    humanlabels_to_onehot = pickle.load(open('{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
     onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
     # Create dataloader

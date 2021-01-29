@@ -8,7 +8,7 @@ from load_data import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--modelpath', type=str, default=None)
-parser.add_argument('--labels', type=str, default='/n/fs/context-scr/UnRel/labels_unrel.pkl')
+parser.add_argument('--labels', type=str, default='UnRel/labels_unrel.pkl')
 parser.add_argument('--splitbiased', default=False, action="store_true")
 parser.add_argument('--batchsize', type=int, default=170)
 parser.add_argument('--nclasses', type=int, default=171)

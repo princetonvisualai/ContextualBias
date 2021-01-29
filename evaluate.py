@@ -11,13 +11,16 @@ from recall import recall3
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str)
-    parser.add_argument('--model', type=str)
+    parser.add_argument('--nclasses', type=int, default=171)
+    parser.add_argument('--model', type=str, default='standard',
+        choices=['standard', 'cam', 'featuresplit', 'splitbiased', 'weighted',
+        'removeclabels', 'removecimages', 'negativepenalty', 'classbalancing',
+        'attribdecorr', 'fs_weighted', 'fs_noweighted'])
     parser.add_argument('--modelpath', type=str, default=None)
     parser.add_argument('--pretrainedpath', type=str, default=None)
-    parser.add_argument('--labels_test', type=str, default='/n/fs/context-scr/COCOStuff/labels_val.pkl')
+    parser.add_argument('--labels_test', type=str, default=None)
     parser.add_argument('--labels_train', type=str, default=None)
     parser.add_argument('--batchsize', type=int, default=170)
-    parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--hs', type=int, default=2048)
     parser.add_argument('--ours', type=bool, default=False)
     parser.add_argument('--device', default=torch.device('cuda'))
@@ -31,12 +34,12 @@ def main():
 
     # Load utility files
     if arg['ours']:
-        biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/our_biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+        biased_classes_mapped = pickle.load(open('{}/our_biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
     else:
-        biased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+        biased_classes_mapped = pickle.load(open('{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
     if arg['dataset'] == 'COCOStuff':
-        unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
-    humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
+        unbiased_classes_mapped = pickle.load(open('{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+    humanlabels_to_onehot = pickle.load(open('{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
     onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
     # Create dataloader
@@ -49,7 +52,7 @@ def main():
         weight = weight.to(arg['device'])
 
     # Do inference with the model
-    if arg['model'] in ['baseline', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit']:
+    if arg['model'] in ['standard', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit', 'fs_noweighted']:
         labels_list, scores_list, test_loss_list = classifier.test(testset)
     if arg['model'] == 'negativepenalty':
         labels_list, scores_list, test_loss_list = classifier.test_negativepenalty(testset, biased_classes_mapped, penalty=10)
@@ -57,6 +60,8 @@ def main():
         labels_list, scores_list, test_loss_list = classifier.test_classbalancing(testset, biased_classes_mapped, weight)
     if arg['model'] == 'weighted':
         labels_list, scores_list, test_loss_list = classifier.test_weighted(testset, biased_classes_mapped, weight=10)
+    if arg['model'] == 'fs_weighted':
+        labels_list, scores_list, val_loss_list = classifier.test_fs_weighted(valset, biased_classes_mapped, weight)
     if arg['model'] == 'attribdecorr':
         pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'], hidden_size=arg['hs'])
 
