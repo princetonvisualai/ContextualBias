@@ -22,8 +22,8 @@ if arg['splitbiased'] == True:
     arg['nclasses'] = arg['nclasses'] + 20
 
 # Load utility files
-humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/COCOStuff/humanlabels_to_onehot.pkl', 'rb'))
-biased_classes_mapped = pickle.load(open('/n/fs/context-scr/COCOStuff/biased_classes_mapped.pkl', 'rb'))
+humanlabels_to_onehot = pickle.load(open('COCOStuff/humanlabels_to_onehot.pkl', 'rb'))
+biased_classes_mapped = pickle.load(open('COCOStuff/biased_classes_mapped.pkl', 'rb'))
 
 print(sorted(list(biased_classes_mapped.keys())))
 
