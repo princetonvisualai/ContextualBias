@@ -22,6 +22,9 @@ def main():
     parser.add_argument('--nclasses', type=int, default=171)
     parser.add_argument('--labels_train', type=str, default=None)
     parser.add_argument('--labels_val', type=str, default=None)
+    parser.add_argument('--biased_classes_mapped', type=str, default=None)
+    parser.add_argument('--unbiased_classes_mapped', type=str, default=None)
+    parser.add_argument('--humanlabels_to_onehot', type=str, default=None)
     parser.add_argument('--nepoch', type=int, default=100)
     parser.add_argument('--train_batchsize', type=int, default=200)
     parser.add_argument('--val_batchsize', type=int, default=170)
@@ -58,10 +61,19 @@ def main():
         makedirs(arg['outdir'])
 
     # Load utility files
-    biased_classes_mapped = pickle.load(open('{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+    if arg['biased_classes_mapped'] is None:
+        biased_classes_mapped = pickle.load(open('{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+    else:
+        biased_classes_mapped = pickle.load(open(arg['biased_classes_mapped'], 'rb'))
     if arg['dataset'] == 'COCOStuff':
-        unbiased_classes_mapped = pickle.load(open('{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
-    humanlabels_to_onehot = pickle.load(open('{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
+        if arg['unbiased_classes_mapped'] is None:
+            unbiased_classes_mapped = pickle.load(open('{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+        else:
+            unbiased_classes_mapped = pickle.load(open(arg['unbiased_classes_mapped'], 'rb'))
+    if arg['humanlabels_to_onehot'] is None:
+        humanlabels_to_onehot = pickle.load(open('{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
+    else:
+        humanlabels_to_onehot = pickle.load(open(arg['humanlabels_to_onehot'], 'rb'))
     onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
     # Create data loaders
@@ -172,10 +184,10 @@ def main():
             train_loss_list, lo_list, lr_list, lbce_list = classifier.train_cam(trainset, pretrained_net, biased_classes_mapped,
                 pretrained_features, classifier_features, lambda1=arg['cam_lambda1'], lambda2=arg['cam_lambda2'])
         if arg['model'] == 'featuresplit':
-            if i == 0: xs_prev_ten = []
+            if i == 1: xs_prev_ten = []
             train_loss_list, xs_prev_ten, loss_non_list, loss_exc_list = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=arg['split'], weighted=True)
         if arg['model'] == 'fs_noweighted':
-            if i == 0: xs_prev_ten = []
+            if i == 1: xs_prev_ten = []
             train_loss_list, xs_prev_ten, loss_non_list, loss_exc_list = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=arg['split'], weighted=False)
         if arg['model'] == 'fs_weighted':
             train_loss_list = classifier.train_fs_weighted(trainset, biased_classes_mapped, weight)
