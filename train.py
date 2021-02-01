@@ -292,7 +292,7 @@ def main():
         exclusive_list.append(np.mean(list(exclusive_AP_dict.values()))*100)
 
         # Print out information
-        print('\nEpoch: {}'.format(i + 1))
+        print('\nEpoch: {}'.format(i))
         print('Loss: train {:.5f}, val {:.5f}'.format(np.mean(train_loss_list), np.mean(val_loss_list)))
         if arg['dataset'] == 'COCOStuff':
             print('Val mAP: all {} {:.5f}, unbiased 60 {:.5f}'.format(arg['nclasses'], mAP*100, mAP_unbiased*100))
