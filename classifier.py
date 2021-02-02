@@ -627,10 +627,10 @@ class multilabel_classifier():
         return loss_list, lo_list, lr_list, lbce_list
 
 
-    # Our old? original? feature-split implementation
+    # Our old/original feature-split implementation (one used at the time of submission)
     """
     def train_featuresplit(self, loader, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=1024, weighted=True):
-        """Train the 'feature-splitting' model for one epoch"""
+        Train the 'feature-splitting' model for one epoch
 
         if s_indices is None:
             s_indices = np.arange(2048)[split:]
@@ -747,8 +747,11 @@ class multilabel_classifier():
         return loss_list, xs_prev_ten, loss_non_list, loss_exc_list
     """
 
+    # Our first attempt at reflecting Krishna's comments
+    # Needs changes such as saving model gradients other than Ws, not zeroing out Ws gradients
+    """
     def train_featuresplit(self, loader, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=1024, weighted=True):
-        """Train the 'feature-splitting' model for one epoch"""
+        Train the 'feature-splitting' model for one epoch
 
         if s_indices is None:
             s_indices = np.arange(2048)[split:]
@@ -861,6 +864,82 @@ class multilabel_classifier():
             loss_list.append(loss.item())
             loss_non_list.append(l_non)
             loss_exc_list.append(l_exc)
+            if self.print_freq and (i % self.print_freq == 0):
+                print('Training epoch {} [{}|{}] loss: {}'.format(self.epoch, i+1, len(loader), loss.item()), flush=True)
+
+        self.epoch += 1
+
+        return loss_list, xs_prev_ten, loss_non_list, loss_exc_list
+    """
+
+    # Implementation of what Krishna described during our chat as his implementation
+    def train_featuresplit(self, loader, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=1024, weighted=True):
+        """Train the 'feature-splitting' model for one epoch"""
+
+        if s_indices is None:
+            s_indices = np.arange(2048)[split:]
+
+        self.model = self.model.to(device=self.device, dtype=self.dtype)
+        self.model.train()
+
+        loss_list = []; loss_non_list = []; loss_exc_list = []
+        for i, (images, labels, ids) in enumerate(loader):
+            images = images.to(device=self.device, dtype=self.dtype)
+            labels = labels.to(device=self.device, dtype=self.dtype)
+
+            # Identify exclusive instances
+            exclusive = torch.zeros((labels.shape), dtype=bool)
+            exclusive_images = torch.zeros((labels.shape[0]), dtype=bool)
+            weight_tensor = torch.ones_like(labels)
+            for m in range(labels.shape[0]):
+                for b in biased_classes_mapped.keys():
+                    c = biased_classes_mapped[b]
+                    if (labels[m,b]==1) and (labels[m,c]==0):
+                        exclusive[m, b] = True
+                        exclusive_images[m] = True
+                        if weighted:
+                            weight_tensor[m, b] = weight[b]
+
+            self.optimizer.zero_grad()
+            classifier_features.clear()
+            out = self.forward(images)
+            x = classifier_features[0]
+            if len(x.shape) < 2:
+                x = x.unsqueeze(0)
+            x_exclusive = x.clone() # Features whose part will be replaced with xs_mean
+
+            # Keep track of xs
+            xs_prev_ten.append(x[~exclusive_images][:, s_indices].detach())
+            if len(xs_prev_ten) > 10:
+                xs_prev_ten.pop(0)
+
+            # Replace the second half of the features with xs_mean
+            if len(xs_prev_ten) > 0:
+                xs_mean = torch.cat(xs_prev_ten).mean(0)
+                x_exclusive[:, s_indices] = xs_mean.detach()
+
+            # Compute y = xs Ws + xo Wo + bias
+            xs_Ws = torch.matmul(x_exclusive[:, s_indices], self.model.resnet.fc.weight[:, s_indices].t())
+            xo_Wo = torch.matmul(x_exclusive[:, ~s_indices], self.model.resnet.fc.weight[:, ~s_indices].t())
+            out_exclusive = xs_Ws + xo_Wo + self.model.resnet.fc.bias
+
+            # Compute the loss
+            criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
+            loss_nonexclusive_tensor = criterion(out, labels)
+            loss_exclusive_tensor = criterion(out_exclusive, labels)
+
+            # Zero-out losses that we don't want to use and combine them
+            loss_nonexclusive_tensor[exclusive] = 0.
+            loss_exclusive_tensor[~exclusive] = 0.
+            loss_tensor = loss_nonexclusive_tensor + loss_exclusive_tensor
+
+            # Compute the final loss and the gradients
+            loss = (weight_tensor * loss_tensor).mean()
+            loss.backward()
+            self.optimizer.step()
+
+            # Print/save losses
+            loss_list.append(loss.item())
             if self.print_freq and (i % self.print_freq == 0):
                 print('Training epoch {} [{}|{}] loss: {}'.format(self.epoch, i+1, len(loader), loss.item()), flush=True)
 
