@@ -17,7 +17,7 @@ For reference, here is a list of packages we import in our scripts: ```pytorch, 
 
 ## Usage
 
-We provide an example job script ```job.sh``` that contains the script execution order with example commands.
+We provide an example job script ```job.sh``` that contains the file execution order with example commands.
 
 ## Code overview
 
