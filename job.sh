@@ -64,7 +64,8 @@ python evaluate.py --dataset COCOStuff --nclasses 171 --model cam \
 
 python evaluate_unrel.py --modelpath models/COCOStuff/cam/model_20.pth
 
-python weight_similarity.py --modelpath models/COCOStuff/featuresplit/model_20.pth
+python weight_similarity.py --dataset COCOStuff --nclasses 171 \
+  --modelpath models/COCOStuff/featuresplit/model_20.pth
 
 python get_prediction_examples.py --dataset COCOStuff --nclasses 171 \
   --labels_test COCOStuff/labels_test.pkl \
