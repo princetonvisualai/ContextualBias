@@ -43,7 +43,7 @@ Here is a brief description of the individual scripts.
 
 ```get_cams.py```: Saves class activation maps (CAMs) to understand what the model is looking at
 - **Image IDs for Figure 2**: Skateboard (317040), Microwave (191632)
-- **Image IDs for Figure 6**: Handbag (167235, 37124), Snowboard (423602, 581921), Car (574087, 119802), Spoon (227858, 42526), Remote (390829)
+- **Image IDs for Figure 6**: Handbag (167235, 37124), Snowboard (423602, 581921), Car (574087, 119802), Spoon (227858, 42526), Remote (390829, 267116)
 
 ```get_prediction_examples.py```: Finds successful and unsuccessful image examples of a model's prediction for a category b
 - **Image IDs for Figure 5**: Skateboard (175612, 198043, 292789, 300842), Microwave (47873, 68833, 332480, 568281), Snowboard (50482, 174103, 435894, 422328)
