@@ -111,7 +111,7 @@ def main():
     if arg['model'] == 'classbalancing':
         weight = calculate_classbalancing_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped, beta=0.99)
         weight = weight.to(arg['device'])
-    if arg['model'] in ['featuresplit', 'fs_weighted']:
+    if arg['model'] in ['featuresplit', 'fs_weighted', 'fs_noweighted']:
         weight = calculate_featuresplit_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped, alpha_min=alpha_min)
         weight = weight.to(arg['device'])
         if arg['fs_randomsplit']:
