@@ -42,8 +42,8 @@ Here is a brief description of the individual scripts.
 ```weight_similarity.py```: Calculates the cosine similarity between W_o and W_s to verify that they capture distinct information
 
 ```get_cams.py```: Saves class activation maps (CAMs) to understand what the model is looking at
-- **Image IDs for Figure 2**: Skateboard (317040), Microwave (191632)
-- **Image IDs for Figure 6**: Handbag (167235, 37124), Snowboard (423602, 581921), Car (574087, 119802), Spoon (227858, 42526), Remote (390829, 267116)
+- **Image IDs for Figure 3**: Skateboard (317040), Microwave (191632)
+- **Image IDs for Figure A4**: Handbag (167235, 37124), Snowboard (423602, 581921), Car (574087, 119802), Spoon (227858, 42526), Remote (390829, 267116)
 
 ```get_prediction_examples.py```: Finds successful and unsuccessful image examples of a model's prediction for a category b
 - **Image IDs for Figure A3**: Skateboard (292789, 430096), Microwave (105547, 444275, 110027, 292905), Snowboard (50482, 174103, 526133, 304817)
