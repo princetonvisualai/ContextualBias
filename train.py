@@ -185,10 +185,12 @@ def main():
                 pretrained_features, classifier_features, lambda1=arg['cam_lambda1'], lambda2=arg['cam_lambda2'])
         if arg['model'] == 'featuresplit':
             if i == 1: xs_prev_ten = []
-            train_loss_list, xs_prev_ten, loss_non_list, loss_exc_list = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=arg['split'], weighted=True)
+            train_loss_list, xs_prev_ten, loss_non_list, loss_exc_list = classifier.train_featuresplit(trainset,
+                biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=arg['split'], weighted=True)
         if arg['model'] == 'fs_noweighted':
             if i == 1: xs_prev_ten = []
-            train_loss_list, xs_prev_ten, loss_non_list, loss_exc_list = classifier.train_featuresplit(trainset, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=arg['split'], weighted=False)
+            train_loss_list, xs_prev_ten, loss_non_list, loss_exc_list = classifier.train_featuresplit(trainset,
+                biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=arg['split'], weighted=False)
         if arg['model'] == 'fs_weighted':
             train_loss_list = classifier.train_fs_weighted(trainset, biased_classes_mapped, weight)
 
@@ -197,18 +199,7 @@ def main():
             classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], i))
 
         # Do inference with the model
-        if arg['model'] in ['standard', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit', 'fs_noweighted']:
-            labels_list, scores_list, val_loss_list = classifier.test(valset)
-        if arg['model'] == 'negativepenalty':
-            labels_list, scores_list, val_loss_list = classifier.test_negativepenalty(valset, biased_classes_mapped, penalty=10)
-        if arg['model'] == 'classbalancing':
-            labels_list, scores_list, val_loss_list = classifier.test_classbalancing(valset, biased_classes_mapped, weight)
-        if arg['model'] == 'weighted':
-            labels_list, scores_list, val_loss_list = classifier.test_weighted(valset, biased_classes_mapped, weight=10)
-        if arg['model'] == 'attribdecorr':
-            labels_list, scores_list, val_loss_list = classifier.test_attribdecorr(valset, pretrained_net, biased_classes_mapped, pretrained_features)
-        if arg['model'] == 'fs_weighted':
-            labels_list, scores_list, val_loss_list = classifier.test_fs_weighted(valset, biased_classes_mapped, weight)
+        labels_list, scores_list, val_loss_list = classifier.test(valset)
 
         # Record train/val loss
         tb.add_scalar('Loss/Train', np.mean(train_loss_list), i)
