@@ -199,7 +199,10 @@ def main():
             classifier.save_model('{}/model_{}.pth'.format(arg['outdir'], i))
 
         # Do inference with the model
-        labels_list, scores_list, val_loss_list = classifier.test(valset)
+        if arg['model'] != 'attribdecorr':
+            labels_list, scores_list, val_loss_list = classifier.test(valset)
+        else:
+            labels_list, scores_list, val_loss_list = classifier.test_attribdecorr(valset, pretrained_net, biased_classes_mapped, pretrained_features)
 
         # Record train/val loss
         tb.add_scalar('Loss/Train', np.mean(train_loss_list), i)
