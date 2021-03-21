@@ -360,6 +360,48 @@ class multilabel_classifier():
         return loss_list
 
 
+    def test_attribdecorr(self, loader, pretrained_net, biased_classes_mapped, pretrained_features, compshare_lambda=0.01):
+        """Evaluate the 'attribute decorrelation' model"""
+
+        pretrained_net.model.to(device=self.device, dtype=self.dtype)
+        pretrained_net.model.eval()
+        self.model.eval()
+
+        with torch.no_grad():
+            labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
+            loss_list = []
+
+            for i, (images, labels, ids) in enumerate(loader):
+                images = images.to(device=self.device, dtype=self.dtype)
+                labels = labels.to(device=self.device, dtype=self.dtype)
+
+                # Get output scores by substituting the last fully connected layer with W
+                W_key = list(self.model.state_dict().keys())[0]
+                W = self.model.state_dict()[W_key]
+                pretrained_features.clear()
+                pretrained_net.model.forward(images)
+
+                # Center crop
+                conv_outputs = [x.to(device=self.device, dtype=self.dtype) for x in pretrained_features]
+                conv_outputs = torch.cat(conv_outputs, dim=0).to(device=self.device, dtype=self.dtype)
+                outputs = self.model.forward(conv_outputs)
+
+                # Ten crop
+                # bs, ncrops, c, h, w = images.size()
+                # outputs = self.forward(images.view(-1, c, h, w)) # fuse batch size and ncrops
+                # outputs = outputs.view(bs, ncrops, -1).mean(1) # avg over crops
+
+                criterion = torch.nn.BCEWithLogitsLoss()
+                loss = criterion(outputs.squeeze(), labels)
+                loss_list.append(loss.item())
+                scores = torch.sigmoid(outputs).squeeze()
+
+                labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
+                scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
+        return labels_list, scores_list, loss_list
+
+
     def train_cam(self, loader, pretrained_net, biased_classes_mapped, pretrained_features, classifier_features, lambda1=0.1, lambda2=0.01):
         """Train the 'CAM-based' model for one epoch"""
 
