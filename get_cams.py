@@ -72,7 +72,7 @@ def main():
     parser.add_argument('--outdir', type=str, default=None)
     parser.add_argument('--featuresplit', default=False, action="store_true")
     parser.add_argument('--split', type=int, default=1024)
-    parser.add_argument('--coco2014_images', type=str, default='Data/Coco/2014data')
+    parser.add_argument('--coco2014_images', type=str, default=None)
     parser.add_argument('--device', default=torch.device('cuda'))
     parser.add_argument('--dtype', default=torch.float32)
     arg = vars(parser.parse_args())

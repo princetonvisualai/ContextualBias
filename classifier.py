@@ -143,7 +143,7 @@ class multilabel_classifier():
 
         return labels_list, scores_list, loss_list
 
-    def get_prediction_examples(self, loader, b):
+    def get_prediction_examples(self, loader, b, c, cooccur=False):
         """Sorts predictions on b into successful and unsuccessful examples"""
 
         self.model = self.model.to(device=self.device, dtype=self.dtype)
@@ -160,11 +160,20 @@ class multilabel_classifier():
                 outputs = self.forward(images)
                 scores = torch.sigmoid(outputs)
                 preds = torch.round(scores).bool()
-                for p in range(preds.shape[0]):
-                    if preds[p,b] == labels[p,b]:
-                        success.add(ids[p])
-                    else:
-                        failures.add(ids[p])
+                if cooccur:
+                    for p in range(preds.shape[0]):
+                        if labels[p,b] == 1. and labels[p,c] == 1.:
+                            if preds[p,b] == 1.:
+                                success.add(ids[p])
+                            else:
+                                failures.add(ids[p])
+                else:
+                    for p in range(preds.shape[0]):
+                        if labels[p,b] == 1. and labels[p,c] == 0.:
+                            if preds[p,b] == 1.:
+                                success.add(ids[p])
+                            else:
+                                failures.add(ids[p])
                 print('Minibatch {}/{}: {} failures total, {} successes total'.format(i, len(loader), len(success), len(failures)), flush=True)
 
         return success, failures
