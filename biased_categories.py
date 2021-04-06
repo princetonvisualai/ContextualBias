@@ -74,7 +74,7 @@ def main():
     parser.add_argument('--labels_80', type=str, default='COCOStuff/labels_train_80.pkl')
     parser.add_argument('--batchsize', type=int, default=200)
     parser.add_argument('--cooccur', type=float, default=0.1)
-    parser.add_argument('--precomputed', type=bool, default=False)
+    parser.add_argument('--precomputed', default=False, action="store_true")
     parser.add_argument('--device', default=torch.device('cuda'))
     parser.add_argument('--dtype', default=torch.float32)
     arg = vars(parser.parse_args())

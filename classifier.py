@@ -214,42 +214,6 @@ class multilabel_classifier():
         self.epoch += 1
         return loss_list
 
-    def test_negativepenalty(self, loader, biased_classes_mapped, penalty=10):
-        """Evaluate the 'strong baseline - negative penalty' model"""
-
-        self.model = self.model.to(device=self.device, dtype=self.dtype)
-        self.model.eval()
-
-        with torch.no_grad():
-
-            labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            loss_list = []
-
-            for i, (images, labels, ids) in enumerate(loader):
-                images = images.to(device=self.device, dtype=self.dtype)
-                labels = labels.to(device=self.device, dtype=self.dtype)
-
-                outputs = self.forward(images)
-                criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
-                loss_tensor = criterion(outputs.squeeze(), labels)
-
-                # Create a loss weight tensor with a large negative penalty for c
-                weight_tensor = torch.ones_like(outputs)
-                for b in biased_classes_mapped.keys():
-                    c = biased_classes_mapped[b]
-                    exclusive = (labels[:,b]==1) & (labels[:,c]==0)
-                    weight_tensor[exclusive, c] = penalty
-
-                # Calculate and make updates with the weighted loss
-                loss = (weight_tensor * loss_tensor).mean()
-                loss_list.append(loss.item())
-                scores = torch.sigmoid(outputs).squeeze()
-
-                labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
-                scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
-
-        return labels_list, scores_list, loss_list
 
     def train_classbalancing(self, loader, biased_classes_mapped, weight):
         """Train the 'strong baseline - class-balancing' model for one epoch"""
@@ -293,48 +257,6 @@ class multilabel_classifier():
         self.epoch += 1
         return loss_list
 
-    def test_classbalancing(self, loader, biased_classes_mapped, weight):
-        """Evaluate the 'strong baseline - class-balancing' model"""
-
-        self.model = self.model.to(device=self.device, dtype=self.dtype)
-        self.model.eval()
-
-        with torch.no_grad():
-
-            labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            loss_list = []
-
-            for i, (images, labels, ids) in enumerate(loader):
-                images = images.to(device=self.device, dtype=self.dtype)
-                labels = labels.to(device=self.device, dtype=self.dtype)
-
-                outputs = self.forward(images)
-                criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
-                loss_tensor = criterion(outputs.squeeze(), labels)
-
-                # Create a loss weight tensor with class balancing weights
-                weight_tensor = torch.ones_like(outputs)
-                for b in biased_classes_mapped.keys():
-                    c = biased_classes_mapped[b]
-                    cooccur = (labels[:,b]==1) & (labels[:,c]==1)
-                    exclusive = (labels[:,b]==1) & (labels[:,c]==0)
-                    other = (~exclusive) & (~cooccur)
-
-                    # Assign the weights
-                    weight_tensor[exclusive, b] = weight[b, 0]
-                    weight_tensor[cooccur, b] = weight[b, 1]
-                    weight_tensor[other, b] = weight[b, 2]
-
-                # Calculate and make updates with the weighted loss
-                loss = (weight_tensor * loss_tensor).mean()
-                loss_list.append(loss.item())
-                scores = torch.sigmoid(outputs).squeeze()
-
-                labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
-                scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
-
-        return labels_list, scores_list, loss_list
 
     def train_weighted(self, loader, biased_classes_mapped, weight=10):
         """Train the 'strong baseline - weighted loss' model for one epoch"""
@@ -371,42 +293,6 @@ class multilabel_classifier():
         self.epoch += 1
         return loss_list
 
-    def test_weighted(self, loader, biased_classes_mapped, weight=10):
-        """Evaluate the 'strong baseline - weighted loss' model"""
-
-        self.model = self.model.to(device=self.device, dtype=self.dtype)
-        self.model.eval()
-
-        with torch.no_grad():
-
-            labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            loss_list = []
-
-            for i, (images, labels, ids) in enumerate(loader):
-                images = images.to(device=self.device, dtype=self.dtype)
-                labels = labels.to(device=self.device, dtype=self.dtype)
-
-                outputs = self.forward(images)
-                criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
-                loss_tensor = criterion(outputs.squeeze(), labels)
-
-                # Create a loss weight tensor with a large negative penalty for b
-                weight_tensor = torch.ones_like(outputs)
-                for b in biased_classes_mapped.keys():
-                    c = biased_classes_mapped[b]
-                    exclusive = (labels[:,b]==1) & (labels[:,c]==0)
-                    weight_tensor[exclusive, b] = weight
-
-                # Calculate and make updates with the weighted loss
-                loss = (weight_tensor * loss_tensor).mean()
-                loss_list.append(loss.item())
-                scores = torch.sigmoid(outputs).squeeze()
-
-                labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
-                scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
-
-        return labels_list, scores_list, loss_list
 
     def train_attribdecorr(self, loader, pretrained_net, biased_classes_mapped, humanlabels_to_onehot, pretrained_features, compshare_lambda=0.1):
         """Train the 'attribute decorrelation' model for one epoch"""
@@ -482,6 +368,7 @@ class multilabel_classifier():
         self.epoch += 1
         return loss_list
 
+
     def test_attribdecorr(self, loader, pretrained_net, biased_classes_mapped, pretrained_features, compshare_lambda=0.01):
         """Evaluate the 'attribute decorrelation' model"""
 
@@ -522,6 +409,7 @@ class multilabel_classifier():
                 labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
                 scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
         return labels_list, scores_list, loss_list
+
 
     def train_cam(self, loader, pretrained_net, biased_classes_mapped, pretrained_features, classifier_features, lambda1=0.1, lambda2=0.01):
         """Train the 'CAM-based' model for one epoch"""
@@ -636,252 +524,7 @@ class multilabel_classifier():
         return loss_list, lo_list, lr_list, lbce_list
 
 
-    # Our old/original feature-split implementation (one used at the time of submission)
-    """
-    def train_featuresplit(self, loader, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=1024, weighted=True):
-        Train the 'feature-splitting' model for one epoch
-
-        if s_indices is None:
-            s_indices = np.arange(2048)[split:]
-
-        self.model = self.model.to(device=self.device, dtype=self.dtype)
-        self.model.train()
-
-        loss_list = []; loss_non_list = []; loss_exc_list = []
-        for i, (images, labels, ids) in enumerate(loader):
-            images = images.to(device=self.device, dtype=self.dtype)
-            labels = labels.to(device=self.device, dtype=self.dtype)
-
-            # Identify exclusive instances
-            exclusive = torch.zeros((labels.shape[0]), dtype=bool)
-            exclusive_list = [] # Image indices with exclusives
-            exclusive_classes = [] # biased category b for the above images
-            for m in range(labels.shape[0]):
-                for b in biased_classes_mapped.keys():
-                    c = biased_classes_mapped[b]
-                    if (labels[m,b]==1) and (labels[m,c]==0):
-                        exclusive[m] = True
-                        exclusive_list.append(m)
-                        exclusive_classes.append(b)
-
-            # List of exclusive categories
-            b_list = [i in exclusive_classes for i in range(self.nclasses)]
-            b_list = np.arange(self.nclasses)[b_list]
-
-            # Update parameters with non-exclusive samples (co-occur or neither b nor c appears)
-            if (~exclusive).sum() > 0:
-                self.optimizer.zero_grad()
-                classifier_features.clear()
-                out_non = self.forward(images[~exclusive])
-                x_non = classifier_features[0]
-                if len(x_non.shape) < 2:
-                    x_non = x_non.unsqueeze(0)
-                criterion = torch.nn.BCEWithLogitsLoss()
-                loss_non = criterion(out_non, labels[~exclusive])
-                loss_non.backward()
-                self.optimizer.step()
-                del out_non
-
-                # Keep track of xs
-                xs_prev_ten.append(x_non[:, s_indices].detach())
-                if len(xs_prev_ten) > 10:
-                    xs_prev_ten.pop(0)
-
-                l_non = loss_non.item()
-            else:
-                l_non = 0.
-
-            # Update parameters with exclusive samples
-            if exclusive.sum() > 0:
-                self.optimizer.zero_grad()
-                classifier_features.clear()
-                self.forward(images[exclusive])
-                x_exc = classifier_features[0]
-                if len(x_exc.shape) < 2:
-                    x_exc = x_exc.unsqueeze(0)
-
-                # Replace the second half of the features with xs_mean
-                if len(xs_prev_ten) > 0:
-                    xs_mean = torch.cat(xs_prev_ten).mean(0)
-                    x_exc[:, s_indices] = xs_mean.detach()
-
-                # Compute y = xs Ws + xo Wo + bias
-                xs_Ws = torch.matmul(x_exc[:, s_indices], self.model.resnet.fc.weight[:, s_indices].t())
-                xo_Wo = torch.matmul(x_exc[:, ~s_indices], self.model.resnet.fc.weight[:, ~s_indices].t())
-                out_exc = xs_Ws + xo_Wo + self.model.resnet.fc.bias
-
-                # Get the loss
-                criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
-                loss_exc_tensor = criterion(out_exc, labels[exclusive])
-
-                # Create a loss weight tensor
-                weight_tensor = torch.ones_like(out_exc)
-                if weighted:
-                    exclusive_unique_list = sorted(list(set(exclusive_list)))
-                    for k in range(len(exclusive_list)):
-                        m = exclusive_unique_list.index(exclusive_list[k])
-                        b = exclusive_classes[k]
-                        weight_tensor[m, b] = weight[b]
-
-                # Compute the final loss and the gradients
-                loss_exc = (weight_tensor * loss_exc_tensor).mean()
-                loss_exc.backward()
-
-                # Zero out Ws gradients and make an update
-                if torch.cuda.device_count() > 1:
-                    self.model._modules['module'].resnet.fc.weight.grad[np.ix_(b_list, s_indices)] = 0.
-                    assert not (self.model._modules['module'].resnet.fc.weight.grad[np.ix_(b_list, s_indices)] != 0.).sum() > 0
-                else:
-                    self.model.resnet.fc.weight.grad[np.ix_(b_list, s_indices)] = 0.
-                    assert not (self.model.resnet.fc.weight.grad[np.ix_(b_list, s_indices)] != 0.).sum() > 0
-
-                old_ws = self.model.resnet.fc.weight[np.ix_(b_list, s_indices)].detach()
-                self.optimizer.step()
-                assert (old_ws != self.model.resnet.fc.weight[np.ix_(b_list, s_indices)]).sum() == 0
-
-                l_exc = loss_exc.item()
-            else:
-                l_exc = 0.
-
-            # Print/save losses
-            loss = (l_non*(~exclusive).sum() + l_exc*exclusive.sum())/exclusive.shape[0]
-            loss_list.append(loss.item())
-            loss_non_list.append(l_non)
-            loss_exc_list.append(l_exc)
-            if self.print_freq and (i % self.print_freq == 0):
-                print('Training epoch {} [{}|{}] loss: {}'.format(self.epoch, i+1, len(loader), loss.item()), flush=True)
-
-        self.epoch += 1
-
-        return loss_list, xs_prev_ten, loss_non_list, loss_exc_list
-    """
-
-    # Our first attempt at reflecting Krishna's comments
-    # Needs changes such as saving model gradients other than Ws, not zeroing out Ws gradients
-    """
-    def train_featuresplit(self, loader, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=1024, weighted=True):
-        Train the 'feature-splitting' model for one epoch
-
-        if s_indices is None:
-            s_indices = np.arange(2048)[split:]
-
-        self.model = self.model.to(device=self.device, dtype=self.dtype)
-        self.model.train()
-
-        loss_list = []; loss_non_list = []; loss_exc_list = []
-        for i, (images, labels, ids) in enumerate(loader):
-            images = images.to(device=self.device, dtype=self.dtype)
-            labels = labels.to(device=self.device, dtype=self.dtype)
-
-            # Identify exclusive instances
-            exclusive = torch.zeros((labels.shape[0]), dtype=bool)
-            exclusive_list = [] # Image indices with exclusives
-            exclusive_classes = [] # biased category b for the above images
-            for m in range(labels.shape[0]):
-                for b in biased_classes_mapped.keys():
-                    c = biased_classes_mapped[b]
-                    if (labels[m,b]==1) and (labels[m,c]==0):
-                        exclusive[m] = True
-                        exclusive_list.append(m)
-                        exclusive_classes.append(b)
-
-            # List of exclusive categories
-            b_list = [i in exclusive_classes for i in range(self.nclasses)]
-            b_list = np.arange(self.nclasses)[b_list]
-
-            # Update parameters with non-exclusive samples (co-occur or neither b nor c appears)
-            if (~exclusive).sum() > 0:
-                self.optimizer.zero_grad()
-                classifier_features.clear()
-                out_non = self.forward(images[~exclusive])
-                x_non = classifier_features[0]
-                if len(x_non.shape) < 2:
-                    x_non = x_non.unsqueeze(0)
-                criterion = torch.nn.BCEWithLogitsLoss()
-
-                # Reweight the loss so that all samples in the batch are weighed equally
-                loss_non = criterion(out_non, labels[~exclusive]) * (~exclusive).sum()/exclusive.shape[0]
-                loss_non.backward()
-                w_grad_non = self.model.resnet.fc.weight.grad.data # Save gradients from loss_non
-                # self.optimizer.step() # Krishna says update after doing backprop for both batches
-                del out_non
-
-                # Keep track of xs
-                xs_prev_ten.append(x_non[:, s_indices].detach())
-                if len(xs_prev_ten) > 10:
-                    xs_prev_ten.pop(0)
-
-                l_non = loss_non.item()
-            else:
-                l_non = 0.
-
-            # Update parameters with exclusive samples
-            if exclusive.sum() > 0:
-                self.optimizer.zero_grad()
-                classifier_features.clear()
-                self.forward(images[exclusive])
-                x_exc = classifier_features[0]
-                if len(x_exc.shape) < 2:
-                    x_exc = x_exc.unsqueeze(0)
-
-                # Replace the second half of the features with xs_mean
-                if len(xs_prev_ten) > 0:
-                    xs_mean = torch.cat(xs_prev_ten).mean(0)
-                    x_exc[:, s_indices] = xs_mean.detach()
-
-                # Compute y = xs Ws + xo Wo + bias
-                xs_Ws = torch.matmul(x_exc[:, s_indices], self.model.resnet.fc.weight[:, s_indices].t())
-                xo_Wo = torch.matmul(x_exc[:, ~s_indices], self.model.resnet.fc.weight[:, ~s_indices].t())
-                out_exc = xs_Ws + xo_Wo + self.model.resnet.fc.bias
-
-                # Get the loss
-                criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
-                loss_exc_tensor = criterion(out_exc, labels[exclusive])
-
-                # Create a loss weight tensor
-                weight_tensor = torch.ones_like(out_exc)
-                if weighted:
-                    exclusive_unique_list = sorted(list(set(exclusive_list)))
-                    for k in range(len(exclusive_list)):
-                        m = exclusive_unique_list.index(exclusive_list[k])
-                        b = exclusive_classes[k]
-                        weight_tensor[m, b] = weight[b]
-
-                # Compute the final loss and the gradients
-                # Reweight the loss so that all samples in the batch are weighed equally
-                loss_exc = (weight_tensor * loss_exc_tensor).mean() * (exclusive).sum()/exclusive.shape[0]
-                loss_exc.backward()
-
-                # Zero out Ws gradients and make an update
-                if torch.cuda.device_count() > 1:
-                    self.model._modules['module'].resnet.fc.weight.grad[np.ix_(b_list, s_indices)] = 0.
-                    assert not (self.model._modules['module'].resnet.fc.weight.grad[np.ix_(b_list, s_indices)] != 0.).sum() > 0
-                else:
-                    self.model.resnet.fc.weight.grad[np.ix_(b_list, s_indices)] = 0.
-                    assert not (self.model.resnet.fc.weight.grad[np.ix_(b_list, s_indices)] != 0.).sum() > 0
-
-                # Add gradients from the non-exclusive batch and then make an update
-                self.model.resnet.fc.weight.grad += w_grad_non
-                self.optimizer.step()
-
-                l_exc = loss_exc.item()
-            else:
-                l_exc = 0.
-
-            # Print/save losses
-            loss = (l_non*(~exclusive).sum() + l_exc*exclusive.sum())/exclusive.shape[0]
-            loss_list.append(loss.item())
-            loss_non_list.append(l_non)
-            loss_exc_list.append(l_exc)
-            if self.print_freq and (i % self.print_freq == 0):
-                print('Training epoch {} [{}|{}] loss: {}'.format(self.epoch, i+1, len(loader), loss.item()), flush=True)
-
-        self.epoch += 1
-
-        return loss_list, xs_prev_ten, loss_non_list, loss_exc_list
-    """
-
-    # Implementation of what Krishna described during our chat as his implementation
+    # Implementation discussed with the original authors
     def train_featuresplit(self, loader, biased_classes_mapped, weight, xs_prev_ten, classifier_features, s_indices, split=1024, weighted=True):
         """Train the 'feature-splitting' model for one epoch"""
 
@@ -1004,54 +647,3 @@ class multilabel_classifier():
         self.epoch += 1
 
         return loss_list
-
-    def test_fs_weighted(self, loader, biased_classes_mapped, weight):
-        """Test the 'non-feature-split weighted loss' model for one epoch"""
-
-        self.model = self.model.to(device=self.device, dtype=self.dtype)
-        self.model.eval()
-
-        with torch.no_grad():
-
-            labels_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            scores_list = np.array([], dtype=np.float32).reshape(0, self.nclasses)
-            loss_list = []
-
-            for i, (images, labels, ids) in enumerate(loader):
-                images  = images.to(device=self.device, dtype=self.dtype)
-                labels = labels.to(device=self.device, dtype=self.dtype)
-
-                # Identify exclusive instances
-                exclusive = torch.zeros((labels.shape[0]), dtype=bool)
-                exclusive_list = [] # Image indices with exclusives
-                exclusive_classes = [] # (b, c) pair for the above images
-                for m in range(labels.shape[0]):
-                    for b in biased_classes_mapped.keys():
-                        c = biased_classes_mapped[b]
-                        if (labels[m,b]==1) & (labels[m,c]==0):
-                            exclusive[m] = True
-                            exclusive_list.append(m)
-                            exclusive_classes.append(b)
-
-                self.optimizer.zero_grad()
-                outputs = self.forward(images)
-                criterion = torch.nn.BCEWithLogitsLoss(reduction='none')
-                loss_tensor = criterion(outputs.squeeze(), labels)
-
-                # Create a loss weight tensor
-                weight_tensor = torch.ones_like(outputs)
-                exclusive_unique_list = sorted(list(set(exclusive_list)))
-                for k in range(len(exclusive_list)):
-                    m = exclusive_unique_list.index(exclusive_list[k])
-                    b = exclusive_classes[k]
-                    weight_tensor[m, b] = weight[b]
-
-                # Calculate and make updates with the weighted loss
-                loss = (weight_tensor * loss_tensor).mean()
-                loss_list.append(loss.item())
-                scores = torch.sigmoid(outputs).squeeze()
-
-                labels_list = np.concatenate((labels_list, labels.detach().cpu().numpy()), axis=0)
-                scores_list = np.concatenate((scores_list, scores.detach().cpu().numpy()), axis=0)
-
-        return labels_list, scores_list, loss_list

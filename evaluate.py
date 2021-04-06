@@ -34,12 +34,14 @@ def main():
 
     # Load utility files
     if arg['ours']:
-        biased_classes_mapped = pickle.load(open('{}/our_biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+        biased_classes_mapped = pickle.load(open('/n/fs/context-scr/data/{}/our_biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+        if arg['dataset'] == 'COCOStuff':
+            unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/data/{}/our_unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
     else:
-        biased_classes_mapped = pickle.load(open('{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
-    if arg['dataset'] == 'COCOStuff':
-        unbiased_classes_mapped = pickle.load(open('{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
-    humanlabels_to_onehot = pickle.load(open('{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
+        biased_classes_mapped = pickle.load(open('/n/fs/context-scr/data/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+        if arg['dataset'] == 'COCOStuff':
+            unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/data/{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+    humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/data/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
     onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
     # Create dataloader
@@ -47,22 +49,11 @@ def main():
 
     # Load model
     classifier = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['modelpath'], hidden_size=arg['hs'], attribdecorr=(arg['model']=='attribdecorr'))
-    if arg['model'] == 'classbalancing':
-        weight = calculate_classbalancing_weight(arg['labels_train'], arg['nclasses'], biased_classes_mapped, beta=0.99)
-        weight = weight.to(arg['device'])
 
     # Do inference with the model
-    if arg['model'] in ['standard', 'removeclabels', 'removecimages', 'splitbiased', 'cam', 'featuresplit', 'fs_noweighted']:
+    if arg['model'] != 'attribdecorr':
         labels_list, scores_list, test_loss_list = classifier.test(testset)
-    if arg['model'] == 'negativepenalty':
-        labels_list, scores_list, test_loss_list = classifier.test_negativepenalty(testset, biased_classes_mapped, penalty=10)
-    if arg['model'] == 'classbalancing':
-        labels_list, scores_list, test_loss_list = classifier.test_classbalancing(testset, biased_classes_mapped, weight)
-    if arg['model'] == 'weighted':
-        labels_list, scores_list, test_loss_list = classifier.test_weighted(testset, biased_classes_mapped, weight=10)
-    if arg['model'] == 'fs_weighted':
-        labels_list, scores_list, val_loss_list = classifier.test_fs_weighted(valset, biased_classes_mapped, weight)
-    if arg['model'] == 'attribdecorr':
+    else:
         pretrained_net = multilabel_classifier(arg['device'], arg['dtype'], arg['nclasses'], arg['pretrainedpath'], hidden_size=arg['hs'])
 
         # Hook conv feature extractor

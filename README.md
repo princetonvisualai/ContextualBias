@@ -1,6 +1,19 @@
 # [Re] Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias
 
-This is a non-official implementation of [Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias (CVPR 2020)](https://arxiv.org/abs/2001.03152). We developed this codebase to reproduce the experiments in the paper, as part of our participation in the [ML Reproducibility Challenge 2020](https://paperswithcode.com/rc2020).
+This is a non-official implementation of [Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias (CVPR 2020)](https://arxiv.org/abs/2001.03152). 
+We developed this codebase to reproduce the experiments in the paper, as part of our participation in the [ML Reproducibility Challenge 2020](https://paperswithcode.com/rc2020). We implemented the entire pipeline which includes biased categories identification, 10 methods (the proposed *CAM-based* and *feature-split* methods for contextual bias mitigation and 8 baselines), and analyses performed by the original authors. 
+
+Our [reproducibility report](https://openreview.net/forum?id=PRXM8-O9PKd) (8 pages + 12 pages of appendix) has been selected for publication in the [ReScience C](http://rescience.github.io/) journal. If you find any piece of our code/report useful, please consider citing:
+
+```
+@inproceedings{kim2021reproducibility,
+  title = {[Re] Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias},
+  author = {Sunnie S. Y. Kim and Sharon Zhang and Nicole Meister and Olga Russakovsky},
+  booktitle = {ML Reproducibility Challenge 2020},
+  year = {2021},
+  url = {https://openreview.net/forum?id=PRXM8-O9PKd}
+}
+```
 
 ## Dependencies
 
@@ -17,7 +30,7 @@ For reference, here is a list of packages we import in our scripts: ```pytorch, 
 
 ## Usage
 
-We provide an example job script ```job.sh``` that contains the script execution order with example commands.
+We provide an example job script ```job.sh``` that contains the file execution order with example commands.
 
 ## Code overview
 
@@ -42,11 +55,11 @@ Here is a brief description of the individual scripts.
 ```weight_similarity.py```: Calculates the cosine similarity between W_o and W_s to verify that they capture distinct information
 
 ```get_cams.py```: Saves class activation maps (CAMs) to understand what the model is looking at
-- **Image IDs for Figure 2**: Skateboard (317040), Microwave (191632)
-- **Image IDs for Figure 6**: Handbag (167235, 37124), Snowboard (423602, 581921), Car (574087, 119802), Spoon (227858, 42526), Remote (390829)
+- **Image IDs for Figure 3**: Skateboard (317040), Microwave (191632)
+- **Image IDs for Figure A4**: Handbag (167235, 37124), Snowboard (423602, 581921), Car (574087, 119802), Spoon (227858, 42526), Remote (390829, 267116)
 
 ```get_prediction_examples.py```: Finds successful and unsuccessful image examples of a model's prediction for a category b
-- **Image IDs for Figure 5**: Skateboard (175612, 198043, 292789, 300842), Microwave (47873, 68833, 332480, 568281), Snowboard (50482, 174103, 435894, 422328)
+- **Image IDs for Figure A3**: Skateboard (292789, 430096), Microwave (105547, 444275, 110027, 292905), Snowboard (50482, 174103, 526133, 304817)
 
 #### Utils
 ```classifier.py```: Defines a multi-label classifier with various training methods
