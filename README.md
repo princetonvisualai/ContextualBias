@@ -3,10 +3,10 @@
 This is a non-official implementation of [Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias (CVPR 2020)](https://arxiv.org/abs/2001.03152). 
 We developed this codebase to reproduce the experiments in the paper, as part of our participation in the [ML Reproducibility Challenge 2020](https://paperswithcode.com/rc2020). We implemented the entire pipeline which includes biased categories identification, 10 methods (the proposed *CAM-based* and *feature-split* methods for contextual bias mitigation and 8 baselines), and analyses performed by the original authors. 
 
-Our [reproducibility report](https://openreview.net/forum?id=PRXM8-O9PKd) (8 pages + 12 pages of appendix) has been selected for publication in the [ReScience C](http://rescience.github.io/) journal. If you find any piece of our code/report useful, please consider citing:
+[Our reproducibility report](https://openreview.net/forum?id=PRXM8-O9PKd) (8 pages + 12 pages of appendix) has been selected for publication in the [ReScience C](http://rescience.github.io/) journal. If you find any piece of our code/report useful, please cite:
 
 ```
-@inproceedings{kim2021reproducibility,
+@inproceedings{kim2021re,
   title = {[Re] Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias},
   author = {Sunnie S. Y. Kim and Sharon Zhang and Nicole Meister and Olga Russakovsky},
   booktitle = {ML Reproducibility Challenge 2020},
