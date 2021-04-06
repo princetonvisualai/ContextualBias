@@ -34,14 +34,14 @@ def main():
 
     # Load utility files
     if arg['ours']:
-        biased_classes_mapped = pickle.load(open('/n/fs/context-scr/data/{}/our_biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+        biased_classes_mapped = pickle.load(open('{}/ours_biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
         if arg['dataset'] == 'COCOStuff':
-            unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/data/{}/our_unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+            unbiased_classes_mapped = pickle.load(open('{}/our_unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
     else:
-        biased_classes_mapped = pickle.load(open('/n/fs/context-scr/data/{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+        biased_classes_mapped = pickle.load(open('{}/biased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
         if arg['dataset'] == 'COCOStuff':
-            unbiased_classes_mapped = pickle.load(open('/n/fs/context-scr/data/{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
-    humanlabels_to_onehot = pickle.load(open('/n/fs/context-scr/data/{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
+            unbiased_classes_mapped = pickle.load(open('{}/unbiased_classes_mapped.pkl'.format(arg['dataset']), 'rb'))
+    humanlabels_to_onehot = pickle.load(open('{}/humanlabels_to_onehot.pkl'.format(arg['dataset']), 'rb'))
     onehot_to_humanlabels = dict((y,x) for x,y in humanlabels_to_onehot.items())
 
     # Create dataloader
