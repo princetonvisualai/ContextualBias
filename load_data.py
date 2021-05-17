@@ -104,11 +104,12 @@ def create_dataset(dataset, labels_path, biased_classes_mapped, B=100, train=Tru
                T.ToTensor(),
                normalize
             ])
-        else:
+        else: # To use ten-crop, also change the test function in classifier.py
             transform = T.Compose([
                 T.Resize(256),
                 T.TenCrop(224),
-                T.Lambda(lambda crops: torch.stack([T.ToTensor()(crop) for crop in crops]))
+                T.Lambda(lambda crops: torch.stack([T.ToTensor()(crop) for crop in crops])),
+                normalize
             ])
         shuffle = False
 
