@@ -1,19 +1,29 @@
 # [Re] Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias
 
-### [Paper](http://arxiv.org/abs/2104.13582) | [OpenReview](https://openreview.net/forum?id=PRXM8-O9PKd)
+### [Paper (ReScience C)](https://rescience.github.io/bibliography/Kim_2021.html) | [Paper (arXiv)](http://arxiv.org/abs/2104.13582) | [OpenReview](https://openreview.net/forum?id=PRXM8-O9PKd)
 
 This is a non-official implementation of [Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias (CVPR 2020)](https://arxiv.org/abs/2001.03152). 
 We developed this codebase to reproduce the experiments in the paper, as part of our participation in the [ML Reproducibility Challenge 2020](https://paperswithcode.com/rc2020). We implemented the entire pipeline which includes biased categories identification, 10 methods (the proposed *CAM-based* and *feature-split* methods for contextual bias mitigation and 8 baselines), and analyses performed by the original authors. 
 
-Our reproducibility report (9 pages + 11 pages of appendix) has been selected for publication in the [ReScience C](http://rescience.github.io/) journal. If you find any piece of our code or report useful, please cite:
+Our reproducibility report (12 pages + 13 pages of appendix) has been selected for publication in the [ReScience C](https://rescience.github.io/bibliography/Kim_2021.html) journal. If you find any piece of our code or report useful, please cite:
 
 ```
-@inproceedings{kim2021re,
-  title = {[Re] Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias},
-  author = {Sunnie S. Y. Kim and Sharon Zhang and Nicole Meister and Olga Russakovsky},
-  booktitle = {ML Reproducibility Challenge 2020},
+@article{Kim:2021,
+  author = {Kim, Sunnie S. Y. and Zhang, Sharon and Meister, Nicole and Russakovsky, Olga},
+  title = {{[Re] Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias}},
+  journal = {ReScience C},
   year = {2021},
-  url = {https://openreview.net/forum?id=PRXM8-O9PKd}
+  month = may,
+  volume = {7},
+  number = {2},
+  pages = {{#8}},
+  doi = {10.5281/zenodo.4834352},
+  url = {https://zenodo.org/record/4834352/files/article.pdf},
+  code_url = {https://github.com/princetonvisualai/ContextualBias},
+  code_swh = {swh:1:dir:bc41dd1d3cbd9c97754c3da0ee20ba2273b742fd},
+  review_url = {https://openreview.net/forum?id=PRXM8-O9PKd},
+  type = {Replication},
+  domain = {ML Reproducibility Challenge 2020}
 }
 ```
 
