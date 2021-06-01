@@ -1,6 +1,6 @@
 # [Re] Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias
 
-### [Paper (ReScience C)](https://rescience.github.io/bibliography/Kim_2021.html) | [Paper (arXiv)](http://arxiv.org/abs/2104.13582) | [OpenReview](https://openreview.net/forum?id=PRXM8-O9PKd)
+### [Paper (journal)](https://rescience.github.io/bibliography/Kim_2021.html) | [Paper (arxiv)](http://arxiv.org/abs/2104.13582) | [OpenReview](https://openreview.net/forum?id=PRXM8-O9PKd)
 
 This is a non-official implementation of [Don't Judge an Object by Its Context: Learning to Overcome Contextual Bias (CVPR 2020)](https://arxiv.org/abs/2001.03152). 
 We developed this codebase to reproduce the experiments in the paper, as part of our participation in the [ML Reproducibility Challenge 2020](https://paperswithcode.com/rc2020). We implemented the entire pipeline which includes biased categories identification, 10 methods (the proposed *CAM-based* and *feature-split* methods for contextual bias mitigation and 8 baselines), and analyses performed by the original authors. 
